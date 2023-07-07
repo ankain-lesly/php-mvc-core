@@ -1,11 +1,12 @@
 {
-  "name": "devlee/mvc-test",
-  "description": "Package for database module",
-  "type": "project",
-  "license": "MTC",
+  "name": "devlee/x-mvc-core",
+  "description": "A PHP data access and manipulation module implementing the mvc pattern",
+  "type": "library",
+  "license": "MIT",
+  "version": "",
   "autoload": {
     "psr-4": {
-      "Devlee\\mvctest\\": "./"
+      "Devlee\\mvc-core\\": "src/"
     }
   },
   "authors": [
