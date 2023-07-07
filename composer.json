@@ -1,0 +1,19 @@
+{
+  "name": "devlee/mvc-test",
+  "description": "Package for database module",
+  "type": "project",
+  "license": "MTC",
+  "autoload": {
+    "psr-4": {
+      "Devlee\\mvctest\\": "./"
+    }
+  },
+  "authors": [
+    {
+      "name": "Ankain Lesly",
+      "email": "leeleslyank@gmail.com"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {}
+}
