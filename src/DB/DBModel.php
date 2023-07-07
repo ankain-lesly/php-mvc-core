@@ -8,7 +8,6 @@
 
 namespace Devlee\mvccore\DB;
 
-use Devlee\mvccore\DB\Database;
 use Devlee\mvccore\BaseModel;
 use PDO;
 
