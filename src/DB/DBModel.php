@@ -6,17 +6,17 @@
  * Time: 6:00 AM
  */
 
-namespace app\database;
+namespace Devlee\mvccore\DB;
 
-use app\database\Database;
-use app\models\BaseModel;
+use Devlee\mvccore\DB\Database;
+use Devlee\mvccore\BaseModel;
 use PDO;
 
 /**
  * Class DBModel
  *
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package app\-> Models
+ * @package Devlee\mvccore\DB
  */
 abstract class DBModel extends BaseModel
 {

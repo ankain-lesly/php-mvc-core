@@ -1,8 +1,20 @@
 <?php
 
-namespace app\database;
+/**
+ * User: Dev_Lee
+ * Date: 6/29/2023
+ * Time: 6:00 AM
+ */
 
-use app\models\BaseModel;
+namespace Devlee\mvccore\DB;
+
+/**
+ * Class Database
+ *
+ * @author  Ankain Lesly <leeleslyank@gmail.com>
+ * @package Devlee\mvccore\DB
+ */
+
 use PDO;
 
 class DataAccess

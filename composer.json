@@ -3,10 +3,9 @@
   "description": "A PHP data access and manipulation module implementing the mvc pattern",
   "type": "library",
   "license": "MIT",
-  "version": "",
   "autoload": {
     "psr-4": {
-      "Devlee\\mvc-core\\": "src/"
+      "Devlee\\mvccore\\": "src/"
     }
   },
   "authors": [

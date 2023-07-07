@@ -6,16 +6,16 @@
  * Time: 6:00 AM
  */
 
-namespace app\models;
+namespace Devlee\mvccore;
 
-use app\database\DataAccess;
-use app\database\Database;
+use Devlee\mvccore\DB\DataAccess;
+use Devlee\mvccore\DB\Database;
 
 /**
  * Class BaseModel
  *
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package app\-> Models
+ * @package  Devlee\mvccore
  */
 class BaseModel
 {
