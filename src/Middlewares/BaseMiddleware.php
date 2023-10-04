@@ -6,30 +6,20 @@
  * Updated: 10/03/2023 - Time: 11:54 PM
  */
 
-
 namespace Devlee\PHPMVCCore;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\BaseModel
+ * @package  Devlee\PHPMVCCore\BaseMiddleware
  */
 
 abstract class BaseMiddleware
 {
-  public static Session $session;
-  // inherit properties from the parent ware
-
   public function __construct()
   {
-    // $this->UserObj = new User();
-    self::$session = new Session();
   }
-  // private Session $session;
-  // public function __construct()
-  // {
-  //   // $this->UserObj = new User();
-  //   $this->session = new Session();
-  // }
+
+  // methods to manage activity
 
   // middleware concepts
   abstract public function caseName(): string;
