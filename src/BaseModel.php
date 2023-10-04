@@ -2,21 +2,20 @@
 
 /**
  * User: Dev_Lee
- * Date: 6/29/2023
- * Time: 6:00 AM
+ * Date: 06/29/2023 - Time: 6:00 AM
+ * Updated: 10/03/2023 - Time: 11:54 PM
  */
 
-namespace Devlee\mvccore;
 
-use Devlee\mvccore\DB\DataAccess;
-use Devlee\mvccore\DB\Database;
+namespace Devlee\PHPMVCCore;
+
+use Devlee\PHPMVCCore\DB\Database;
 
 /**
- * Class BaseModel
- *
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\mvccore
+ * @package  Devlee\PHPMVCCore\BaseModel
  */
+
 class BaseModel
 {
   const RULE_REQUIRED = 'required';
@@ -26,20 +25,16 @@ class BaseModel
   const RULE_MATCH = 'match';
   const RULE_UNIQUE = 'unique';
 
+  // Pending...
+  const RULE_REGEX = 'regex';
+
   public array $errors = [];
   public \PDO $PDO;
-  public DataAccess $DataAccess;
 
   public function __construct()
   {
     $DB = new Database();
     $this->PDO = $DB->connect();
-
-    $this->DataAccess = new DataAccess($this->PDO);
-    /**
-     * Database
-     * connect method
-     */
   }
 
   public function loadData($data)
@@ -79,7 +74,7 @@ class BaseModel
       self::RULE_MIN => 'Min length of this field must be {min}',
       self::RULE_MAX => 'Max length of this field must be {max}',
       self::RULE_MATCH => 'This field must be the same as {match}',
-      self::RULE_UNIQUE => 'Record with with this {field} already exists',
+      self::RULE_UNIQUE => '{field} is already taken',
     ];
   }
 
@@ -91,39 +86,80 @@ class BaseModel
 
       if ($update_attrs && !in_array($attribute, $update_attrs)) continue;
 
+      // Check rule attr if exists()
+      if (!property_exists($this, $attribute)) {
+        // TODO:
+        die("Property does not exists: " . $attribute);
+        // exit("Property does not exist: " . $attribute);
+      }
+
       $value = $this->{$attribute};
-      foreach ($rules as $rule) {
-        $ruleName = $rule;
-        if (!is_string($rule)) {
-          $ruleName = $rule[0];
-        }
+      foreach (explode(",", $rules) as $rule) {
+        // De complex rules()
+        $message = trim(explode('>>', $rule)[1] ?? false);
+        $rule = explode('>>', $rule)[0];
+        $ruleName = trim(explode('|', $rule)[0]);
+        $ruleNameValue = trim(explode('|', $rule)[1] ?? false);
+
         if ($ruleName === self::RULE_REQUIRED && !$value) {
-          $this->addErrorByRule($attribute, self::RULE_REQUIRED);
+          if ($message) {
+            $this->addError($attribute, $message);
+          } else {
+            $this->addErrorByRule($attribute, self::RULE_REQUIRED);
+          }
         }
         if ($ruleName === self::RULE_EMAIL && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
-          $this->addErrorByRule($attribute, self::RULE_EMAIL);
+          if ($message) {
+            $this->addError($attribute, $message);
+          } else {
+            $this->addErrorByRule($attribute, self::RULE_EMAIL);
+          }
         }
-        if ($ruleName === self::RULE_MIN && strlen($value) < $rule['min']) {
-          $this->addErrorByRule($attribute, self::RULE_MIN, ['min' => $rule['min']]);
+        if ($ruleName === self::RULE_MIN && strlen($value) < $ruleNameValue) {
+          if ($message) {
+            $this->addError($attribute, $message);
+          } else {
+            $this->addErrorByRule($attribute, self::RULE_MIN, ['min' => $ruleNameValue]);
+          }
         }
-        if ($ruleName === self::RULE_MAX && strlen($value) > $rule['max']) {
-          $this->addErrorByRule($attribute, self::RULE_MAX);
+        if ($ruleName === self::RULE_MAX && strlen($value) > $ruleNameValue) {
+          if ($message) {
+            $this->addError($attribute, $message);
+          } else {
+            $this->addErrorByRule($attribute, self::RULE_MAX, ['max' => $ruleNameValue]);
+          }
         }
-        if ($ruleName === self::RULE_MATCH && $value !== $this->{$rule['match']}) {
-          $this->addErrorByRule($attribute, self::RULE_MATCH, ['match' => $rule['match']]);
+        if ($ruleName === self::RULE_MATCH && $value !== $this->{$ruleNameValue}) {
+          if ($message) {
+            $this->addError($attribute, $message);
+          } else {
+            $this->addErrorByRule($attribute, self::RULE_MATCH, ['match' => $ruleNameValue]);
+          }
         }
         if ($ruleName === self::RULE_UNIQUE) {
-          $className = $rule['class'];
+          if ($update_data) return;
           $uniqueAttr = $rule['attribute'] ?? $attribute;
-          $tableName = $className::tableName();
-          $db = $this->PDO;
-          $statement = $db->prepare("SELECT * FROM $tableName WHERE $uniqueAttr = :$uniqueAttr");
-          $statement->bindValue(":$uniqueAttr", $value);
-          $statement->execute();
-          $record = $statement->fetchObject();
-          if ($record) {
+          $where = [$uniqueAttr => $value];
+          $record = $this->findOne($where, [$attribute]);
+
+          if ($record && $message) {
+            $this->addError($attribute, $message);
+          } elseif ($record) {
             $this->addErrorByRule($attribute, self::RULE_UNIQUE);
           }
+        }
+
+        // CHecking invalid rulename
+        if (
+          $ruleName !== self::RULE_EMAIL &&
+          $ruleName !== self::RULE_MATCH &&
+          $ruleName !== self::RULE_MAX &&
+          $ruleName !== self::RULE_MIN &&
+          $ruleName !== self::RULE_REQUIRED &&
+          $ruleName !== self::RULE_UNIQUE
+        ) {
+          // TODO:
+          exit("Invalid validation schema: <b>$ruleName</b> in $attribute");
         }
       }
     }
@@ -151,26 +187,27 @@ class BaseModel
   public function addError(string $attribute, string $message)
   {
     $this->errors['errors'][$attribute]['errors'][] = $message;
-    $this->errors['errors'][$attribute]['value'] = $this->{$attribute};
+    $this->errors['errors'][$attribute]['value'] = $this->{$attribute} ?? false;
   }
+
   public function addErrorMessage(string $message)
   {
     $this->errors['message'] = $message;
     return false;
   }
 
-  // public function hasError($attribute)
-  // {
-  //   return $this->errors[$attribute] ?? false;
-  // }
-
   public function getErrors()
   {
     return $this->errors ? $this->errors : false;
   }
-  // public function getFirstError($attribute)
-  // {
-  //   $errors = $this->errors[$attribute] ?? [];
-  //   return $errors[0] ?? '';
-  // }
+
+  // Hash Strings
+  public static function hashString(string $string)
+  {
+    return password_hash($string, PASSWORD_DEFAULT);
+  }
+  public static function verifyHashed(string $string, string $hashedString)
+  {
+    return password_verify($string, $hashedString);
+  }
 }

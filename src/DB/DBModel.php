@@ -2,33 +2,26 @@
 
 /**
  * User: Dev_Lee
- * Date: 6/29/2023
- * Time: 6:00 AM
+ * Date: 06/29/2023 - Time: 6:00 AM
+ * Updated: 10/03/2023 - Time: 11:54 PM
  */
 
-namespace Devlee\mvccore\DB;
+namespace Devlee\PHPMVCCore\DB;
 
-use Devlee\mvccore\BaseModel;
 use PDO;
 
+
+use Devlee\PHPMVCCore\BaseModel;
+
 /**
- * Class DBModel
- *
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package Devlee\mvccore\DB
+ * @package  Devlee\PHPMVCCore\DB\DBModel
  */
+
 abstract class DBModel extends BaseModel
 {
   abstract public static function tableName(): string;
   // abstract public function getDisplayName(): string;
-
-  public static function SetDatabaseDetails(array $DB_CONFIG)
-  {
-    Database::$DB_HOST = $DB_CONFIG['host'] ?? die('Database configurations "host" is required');
-    Database::$DB_USER = $DB_CONFIG['user'] ?? die('Database configurations "user" is required');
-    Database::$DB_PASSWORD = $DB_CONFIG['password'] ?? die('Database configurations "password" is required');
-    Database::$DB_NAME = $DB_CONFIG['name'] ?? die('Database configurations "name" is required');
-  }
 
   // public static function primaryKey(): string
   // {
@@ -58,7 +51,7 @@ abstract class DBModel extends BaseModel
       $statement->bindValue(":$attribute", $this->{$attribute});
     }
 
-    return $statement->execute() ?? $this->addErrorMessage('Error Dreating Data!');
+    return $statement->execute();
   }
 
   // Update Data
@@ -97,12 +90,11 @@ abstract class DBModel extends BaseModel
       $statement->bindValue(":$attribute", $this->{$attribute});
     }
 
-    return $statement->execute() ?? $this->addErrorMessage('Error Dreating Data!');
+    return $statement->execute() ?? $this->addErrorMessage('Error Creating Data!');
   }
   // Delete Data
   public function delete($where)
   {
-
     $tableName = static::tableName();
     $attributes = array_keys($where);
 
@@ -119,15 +111,10 @@ abstract class DBModel extends BaseModel
   }
 
   // Find Single Object 
-  public function findOne($where, $select_array = null)
+  public function findOne(array $where, array $select_array = [])
   {
-    /**
-     * $select_array
-     * ['id', 'title', 'post_boby', 'created_at']
-     */
-
     $select_list = " * ";
-    if ($select_array && is_array($select_array)) {
+    if ($select_array) {
       $select_list = implode(", ", $select_array);
     }
 
@@ -143,15 +130,13 @@ abstract class DBModel extends BaseModel
     }
 
     $statement->execute();
-    // $data = $statement->fetchObject(static::class);
-    // return $statement->fetchObject(static::class);
     return $statement->fetch(PDO::FETCH_ASSOC);
   }
 
   // Find a Collection of objects
   public function findAll(
-    $where = [],
-    $select_array = null,
+    array $where = [],
+    array $select_array = [],
     array $pagination = []
   ) {
     // $pagination = [
@@ -165,6 +150,7 @@ abstract class DBModel extends BaseModel
     $order_sql = '';
 
     if (!empty($pagination)) {
+      // TODO: log errors
       $current_page = $pagination['current_page'] ?? die("<b>'current_page'</b> is required for pagination to work in <b>" . get_class($this) . "</b> -> " . __FUNCTION__);
       $page_limit = $pagination['page_limit'] ?? die("'page_limit' is required for pagination to work in <b>" . get_class($this) . "</b> -> " . __FUNCTION__);
       $order_by = $pagination['order_by_attr'] ?? '';
@@ -176,11 +162,8 @@ abstract class DBModel extends BaseModel
 
     // Select Custom attributes
     $select_list = " * ";
-    if ($select_array && is_array($select_array)) {
-      $select_list = implode(
-        ", ",
-        $select_array
-      );
+    if ($select_array) {
+      $select_list = implode(", ", $select_array);
     }
 
     // Getting Table name
@@ -203,7 +186,6 @@ abstract class DBModel extends BaseModel
     foreach ($where as $key => $item) {
       $statement->bindValue(":$key", $item);
     }
-
     $statement->execute();
 
     $data = array();
@@ -225,8 +207,6 @@ abstract class DBModel extends BaseModel
     }
     return $data;
   }
-  // Fetch Custom Query
-  # ---
   // Fetch Data count
   public function findCount(string $table = null, array $where = [])
   {

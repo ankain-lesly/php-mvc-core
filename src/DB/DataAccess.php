@@ -2,37 +2,35 @@
 
 /**
  * User: Dev_Lee
- * Date: 6/29/2023
- * Time: 6:00 AM
+ * Date: 06/29/2023 - Time: 6:00 AM
+ * Updated: 10/03/2023 - Time: 11:54 PM
  */
 
-namespace Devlee\mvccore\DB;
-
-/**
- * Class Database
- *
- * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package Devlee\mvccore\DB
- */
+namespace Devlee\PHPMVCCore\DB;
 
 use PDO;
 
-class DataAccess
+/**
+ * @author  Ankain Lesly <leeleslyank@gmail.com>
+ * @package  Devlee\PHPMVCCore\DB\DataAccess
+ */
+
+class DataAccess extends Database
 {
 
-  private PDO $PDO;
+  private PDO $conn;
 
-  public function __construct(PDO $pdo)
+  public function __construct()
   {
-    $this->PDO = $pdo;
+    $this->conn = $this->connect();
   }
   // Query the Database
   public function insert(string $query, array $params)
   {
-    $stmt = $this->PDO->prepare($query);
+    $stmt = $this->conn->prepare($query);
     $stmt->execute($params);
 
-    $id = $this->PDO->lastInsertId();
+    $id = $this->conn->lastInsertId();
     // $this->conn = null;
     return $id;
   }
@@ -40,7 +38,7 @@ class DataAccess
   // Query Data
   public function query(string $query, array $params = [])
   {
-    $stmt = $this->PDO->prepare($query);
+    $stmt = $this->conn->prepare($query);
     $stmt->execute($params);
 
     return $stmt->rowCount();
@@ -49,7 +47,7 @@ class DataAccess
   // Find Single Object 
   public function findOne(string $query, array $params = [])
   {
-    $stmt = $this->PDO->prepare($query);
+    $stmt = $this->conn->prepare($query);
     $stmt->execute($params);
 
     // $this->conn = null;
@@ -62,7 +60,7 @@ class DataAccess
   // Fetch Custom Data Array
   public function findAll(string $query, array $params = [])
   {
-    $stmt = $this->PDO->prepare($query);
+    $stmt = $this->conn->prepare($query);
     $stmt->execute($params);
 
     if ($stmt->rowCount() <= 0) return false;
@@ -76,8 +74,7 @@ class DataAccess
   // Fetch Custom Query
   public function fetch(string $query)
   {
-    $stmt = $this->PDO->query($query);
-
+    $stmt = $this->conn->query($query);
 
     if ($stmt->rowCount() <= 0) return false;
 
@@ -99,10 +96,9 @@ class DataAccess
     );
 
     $sql_where = $sql_where ? "WHERE $sql_where" : '';
-
     $sql = "SELECT COUNT(*) AS count FROM $table_name $sql_where";
 
-    $statement = $this->PDO->prepare($sql);
+    $statement = $this->conn->prepare($sql);
     foreach ($where as $key => $item) {
       $statement->bindValue(":$key", $item);
     }
