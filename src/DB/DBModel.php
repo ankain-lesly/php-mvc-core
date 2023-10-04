@@ -10,7 +10,6 @@ namespace Devlee\PHPMVCCore\DB;
 
 use PDO;
 
-
 use Devlee\PHPMVCCore\BaseModel;
 
 /**
@@ -20,6 +19,7 @@ use Devlee\PHPMVCCore\BaseModel;
 
 abstract class DBModel extends BaseModel
 {
+  // abstract public function attributes(): array;
   abstract public static function tableName(): string;
   // abstract public function getDisplayName(): string;
 
@@ -40,15 +40,20 @@ abstract class DBModel extends BaseModel
     $tableName = $this->tableName();
     $attributes = $this->attributes();
 
-    $params = array_map(fn ($attr) => ":$attr", $attributes);
-
-    $sql = "INSERT INTO $tableName (" . implode(",", $attributes) . ") 
-                VALUES (" . implode(",", $params) . ")";
+    // $params = array_map(fn ($attr) => ":$attr", $attributes);
+    $params = [];
+    foreach ($attributes as  $attr) {
+      if (property_exists($this, $attr) && isset($this->{$attr}))
+        $params[] =  $attr;
+    }
+    $sql = "INSERT INTO $tableName (" . implode(",", $params) . ") 
+                VALUES (" . implode(",", array_map(fn ($attr) => ":$attr", $params)) . ")";
 
     $statement = $this->PDO->prepare($sql);
 
-    foreach ($attributes as $attribute) {
-      $statement->bindValue(":$attribute", $this->{$attribute});
+    foreach ($params as $attr) {
+      if (property_exists($this, $attr))
+        $statement->bindValue(":$attr", $this->{$attr});
     }
 
     return $statement->execute();
@@ -57,44 +62,43 @@ abstract class DBModel extends BaseModel
   // Update Data
   public function update(array $data, array $where)
   {
-    $this->loadData($data);
-
-    if (!$this->validate($data)) {
-      return ["errors" => $this->getErrors()];
-    }
-
     $tableName = $this->tableName();
 
-    $where_params = array();
+    // $attributes = array_keys($data);
+    $attr_data = array_keys($data);
+    $attr_where = array_keys($where);
 
-    foreach ($where as $key) {
-      if (array_key_exists($key, $data)) {
-        $where_params[$key] = $data[$key];
-        unset($data[$key]);
-      }
+    $where_sql = [];
+    foreach ($attr_where as $attr) {
+      if (property_exists($this, $attr))
+        $where_sql[] =  "$attr = :$attr";
     }
 
-    $attributes = array_keys($data);
-
-    $where_sql = array_map(fn ($attr) => "$attr = :$attr", $where);
-
-    $params = array_map(fn ($attr) => "$attr = :$attr", $attributes);
+    $params = [];
+    foreach ($attr_data as $attr) {
+      if (property_exists($this, $attr))
+        $params[] =  "$attr = :$attr";
+    }
 
     $sql = "UPDATE $tableName SET " . implode(",", $params) . "
             WHERE " . implode(" AND ", $where_sql);
-
     $statement = $this->PDO->prepare($sql);
-    $final_attributes = array_merge($attributes, $where);
 
-    foreach ($final_attributes as $attribute) {
-      $statement->bindValue(":$attribute", $this->{$attribute});
+    foreach ($attr_data as $attr) {
+      if (property_exists($this, $attr))
+        $statement->bindValue(":$attr", $data[$attr]);
+    }
+    foreach ($attr_where as $attr) {
+      if (property_exists($this, $attr))
+        $statement->bindValue(":$attr", $where[$attr]);
     }
 
-    return $statement->execute() ?? $this->addErrorMessage('Error Creating Data!');
+    return $statement->execute();
   }
   // Delete Data
-  public function delete($where)
+  public function delete(array $where)
   {
+
     $tableName = static::tableName();
     $attributes = array_keys($where);
 
@@ -111,24 +115,24 @@ abstract class DBModel extends BaseModel
   }
 
   // Find Single Object 
-  public function findOne(array $where, array $select_array = [])
+  public function findOne(array $where, array $columns = [], string $selector = 'AND')
   {
     $select_list = " * ";
-    if ($select_array) {
-      $select_list = implode(", ", $select_array);
+    if ($columns && is_array($columns)) {
+      $select_list = implode(", ", $columns);
     }
 
     $tableName = static::tableName();
     $attributes = array_keys($where);
 
-    $sql_where = implode(" AND ", array_map(fn ($attr) => "$attr = :$attr", $attributes));
+    $sql_where = implode(" $selector ", array_map(fn ($attr) => "$attr = :$attr", $attributes));
+
     $sql = "SELECT $select_list FROM $tableName WHERE $sql_where";
 
     $statement = $this->PDO->prepare($sql);
-    foreach ($where as $key => $item) {
-      $statement->bindValue(":$key", $item);
+    foreach ($where as $key => $value) {
+      if (property_exists($this, $key))  $statement->bindValue(":$key", $value);
     }
-
     $statement->execute();
     return $statement->fetch(PDO::FETCH_ASSOC);
   }
@@ -136,41 +140,37 @@ abstract class DBModel extends BaseModel
   // Find a Collection of objects
   public function findAll(
     array $where = [],
-    array $select_array = [],
+    array $columns = null,
     array $pagination = []
   ) {
-    // $pagination = [
-    //   "current_page" => 1,
-    //   "page_limit" => 10,
-    //   "order_by_attr" => 'id',
-    // ];
 
     // Working with Pagination
     $pagination_sql = '';
-    $order_sql = '';
-
-    if (!empty($pagination)) {
-      // TODO: log errors
-      $current_page = $pagination['current_page'] ?? die("<b>'current_page'</b> is required for pagination to work in <b>" . get_class($this) . "</b> -> " . __FUNCTION__);
-      $page_limit = $pagination['page_limit'] ?? die("'page_limit' is required for pagination to work in <b>" . get_class($this) . "</b> -> " . __FUNCTION__);
-      $order_by = $pagination['order_by_attr'] ?? '';
-
-      $start_at = ($current_page - 1) * $page_limit;
-      $pagination_sql = "LIMIT " . ($start_at) . ", " . $page_limit;
-      $order_sql = $order_by ? "ORDER BY " . $order_by . " DESC" : '';
+    $current_page = $pagination['current_page'] ?? false;
+    $page_limit = $pagination['page_limit'] ?? false;
+    $start_at = $pagination['start_at'] ?? 0;
+    if ($current_page !== false && $page_limit) {
+      $base = $current_page === 0 ? $current_page : ($current_page - 1) * $page_limit;
+      $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $page_limit;
     }
+
+    // ORDER BY CLAUSE
+    $order_by = $pagination['order_by'] ?? false;
+    $order_sql = $order_by ? "ORDER BY " . $this->tableName() . '.' . $order_by . " DESC" : '';
 
     // Select Custom attributes
     $select_list = " * ";
-    if ($select_array) {
-      $select_list = implode(", ", $select_array);
+    if ($columns && is_array($columns)) {
+      $select_list = implode(
+        ", ",
+        $columns
+      );
     }
 
     // Getting Table name
     $tableName = static::tableName();
 
-    // Setting the where clause
-    if (!is_array($where)) $where = [];
+    // Handling where clause
     $attributes = array_keys($where);
 
     $sql_where = implode(
@@ -188,29 +188,351 @@ abstract class DBModel extends BaseModel
     }
     $statement->execute();
 
-    $data = array();
-
+    $result = array('data' => []);
     while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-      $data['data'][] = $row;
+      $result['data'][] = $row;
     }
 
-    // Sending Pagination Data
-    if (!empty($pagination)) {
-      $total_rows = $this->findCount()['count'];
-      $data['pagination_info'] = $pagination = [
-        "current_page" => $current_page ?? 1,
-        "total_pages" => round($total_rows / ($page_limit ?? 1)),
-        "page_limit" => $page_limit ?? 0,
-        "order_by_attr" => $order_by ?? '',
+    // Sending Pagination Data 
+    if ($result && $current_page !== false && $page_limit) {
+      $total_rows = $this->findCount($where)['count']  - $start_at;
+
+      $pages = round($total_rows / ($page_limit));
+      $result['paginator'] = [
+        "current_page" => $current_page === 0 ? 1 : $current_page,
+        "total_pages" =>  $pages ? $pages : 1,
+        "page_limit" => $page_limit,
+        "order_by" => $order_by,
         "total_rows" => $total_rows,
       ];
     }
-    return $data;
+    return $result;
   }
+
+  // Find A Collection Join
+  public function findOneJoin(
+    array $models,
+    array $common_column,
+    array $where = [],
+    array $columns = []
+  ) {
+    // Getting Table names
+    $Attributes = array();
+
+    $mainTablename = static::tableName();
+    $MainPrefixes = substr($this->tableName(), 3, 1) . "_";
+
+    // Creating Select attributes
+    $Attributes = implode(",", array_map(fn ($attr) => $mainTablename . ".$attr AS " . $MainPrefixes . $attr, $this->attributes()));
+
+    foreach ($models as $key => $model) {
+      $modelPrefix = substr($model->tableName(), 3, 1) . "_";
+      $Attributes .= ", ";
+      $Attributes .= implode(",", array_map(fn ($attr) => $model->tableName() . ".$attr AS " . $modelPrefix . $attr, $model->attributes()));
+    }
+
+    // Handling where clause
+    $attributes = array_keys($where);
+
+    $sql_where = implode(
+      " AND ",
+      array_map(fn ($attr) => $mainTablename . '.' . $attr . " = :$attr", $attributes)
+    );
+
+    $sql_where = $sql_where ? "WHERE $sql_where" : '';
+
+    $sql = "SELECT $Attributes FROM " . $mainTablename;
+    foreach ($models as $key => $model) {
+      $sql .= " INNER JOIN " . $model->tableName();
+      if ($key === 0) {
+        $sql .= " ON " . $mainTablename . "." . $common_column[$key] . " = " . $model->tableName() . "." . $common_column[$key];
+      } else {
+        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $common_column[$key] . " = " . $models[$key]->tableName() . "." . $common_column[$key];
+      }
+    }
+    $sql .= " $sql_where";
+
+    $statement = $this->PDO->prepare($sql);
+    foreach ($where as $key => $item) {
+      $statement->bindValue(":$key", $item);
+    }
+    $statement->execute();
+    return $statement->fetch(PDO::FETCH_ASSOC);
+  }
+  // Find A Collection Join
+  public function findAllJoin(
+    array $models,
+    array $common_column,
+    array $where = [],
+    array $columns = [],
+    array $pagination = []
+  ) {
+    // Getting Table names
+    $Attributes = array();
+
+    $mainTablename = static::tableName();
+    $MainPrefixes = substr($this->tableName(), 3, 1) . "_";
+
+    // Creating Select attributes
+    $Attributes = implode(",", array_map(fn ($attr) => $mainTablename . ".$attr AS " . $MainPrefixes . $attr, $this->attributes()));
+
+    foreach ($models as $key => $model) {
+      $modelPrefix = substr($model->tableName(), 3, 1) . "_";
+      $Attributes .= ", ";
+      $Attributes .= implode(",", array_map(fn ($attr) => $model->tableName() . ".$attr AS " . $modelPrefix . $attr, $model->attributes()));
+    }
+
+    // Working with Pagination
+    $pagination_sql = '';
+    $current_page = $pagination['current_page'] ?? false;
+    $page_limit = $pagination['page_limit'] ?? false;
+    $start_at = $pagination['start_at'] ?? 0;
+    if ($current_page !== false && $page_limit) {
+      $base = $current_page === 0 ? $current_page : ($current_page - 1) * $page_limit;
+      $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $page_limit;
+    }
+
+    // ORDER BY CLAUSE
+    // $order_by = $pagination['order_by'] ?? '';
+    $order_by = $pagination['order_by'] ?? false;
+    $order_sql = $order_by ? "ORDER BY " . $mainTablename . '.' . $order_by . " DESC" : '';
+
+    // Handling where clause
+    $attributes = array_keys($where);
+
+    $sql_where = implode(
+      " AND ",
+      array_map(fn ($attr) => $mainTablename . '.' . $attr . " = :$attr", $attributes)
+    );
+
+    $sql_where = $sql_where ? "WHERE $sql_where" : '';
+
+    $sql = "SELECT $Attributes FROM " . $mainTablename;
+    foreach ($models as $key => $model) {
+      $sql .= " INNER JOIN " . $model->tableName();
+      if ($key === 0) {
+        $sql .= " ON " . $mainTablename . "." . $common_column[$key] . " = " . $model->tableName() . "." . $common_column[$key];
+      } else {
+        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $common_column[$key] . " = " . $models[$key]->tableName() . "." . $common_column[$key];
+      }
+    }
+    $sql .= " $sql_where $order_sql $pagination_sql";
+    $statement = $this->PDO->prepare($sql);
+    foreach ($where as $key => $item) {
+      $statement->bindValue(":$key", $item);
+    }
+    $statement->execute();
+
+    $result = array();
+    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+      $result['data'][] = $row;
+    }
+
+    //  Pagination Data 
+    if ($result && $current_page !== false && $page_limit) {
+      $total_rows = $this->findCount($where)['count']  - $start_at;
+
+      $pages = round($total_rows / ($page_limit));
+      $result['paginator'] = $pagination = [
+        "current_page" => $current_page === 0 ? 1 : $current_page,
+        "total_pages" =>  $pages ? $pages : 1,
+        "page_limit" => $page_limit,
+        "order_by" => $order_by,
+        "total_rows" => $total_rows,
+      ];
+    }
+    return $result;
+  }
+  // Search A Collection Join
+  public function searchJoin(
+    array $models,
+    array $common_column,
+    array $where = [],
+    array $search_columns = [],
+    array $pagination = []
+  ) {
+    // Getting Table names
+    $Attributes = array();
+
+    $mainTablename = static::tableName();
+    $MainPrefixes = substr($this->tableName(), 3, 1) . "_";
+
+    // Creating Select attributes
+    $Attributes = implode(",", array_map(fn ($attr) => $mainTablename . ".$attr AS " . $MainPrefixes . $attr, $this->attributes()));
+
+    foreach ($models as $key => $model) {
+      $modelPrefix = substr($model->tableName(), 3, 1) . "_";
+      $Attributes .= ", ";
+      $Attributes .= implode(",", array_map(fn ($attr) => $model->tableName() . ".$attr AS " . $modelPrefix . $attr, $model->attributes()));
+    }
+
+    // Working with Pagination
+    $pagination_sql = '';
+    $current_page = $pagination['current_page'] ?? false;
+    $page_limit = $pagination['page_limit'] ?? false;
+    $start_at = $pagination['start_at'] ?? 0;
+    if ($current_page !== false && $page_limit) {
+      $base = $current_page === 0 ? $current_page : ($current_page - 1) * $page_limit;
+      $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $page_limit;
+    }
+
+    // ORDER BY CLAUSE
+    // $order_by = $pagination['order_by'] ?? '';
+    $order_by = $pagination['order_by'] ?? false;
+    $order_sql = $order_by ? "ORDER BY " . $mainTablename . '.' . $order_by . " DESC" : '';
+
+    // Handling where clause
+    $attributes = array_keys($where);
+    $sql_where = implode(
+      " AND ",
+      array_map(fn ($attr) => $mainTablename . '.' . $attr . " = :$attr", $attributes)
+    );
+    // Search Algorithm
+    $sql_where .= implode(
+      " OR ",
+      array_map(fn ($col) => $mainTablename . '.' . $col . " LIKE :$col", array_keys($search_columns))
+    );
+
+    $sql_where = $sql_where ? "WHERE $sql_where" : '';
+
+    $sql = "SELECT $Attributes FROM " . $mainTablename;
+
+    foreach ($models as $key => $model) {
+      $sql .= " INNER JOIN " . $model->tableName();
+      if ($key === 0) {
+        $sql .= " ON " . $mainTablename . "." . $common_column[$key] . " = " . $model->tableName() . "." . $common_column[$key];
+      } else {
+        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $common_column[$key] . " = " . $models[$key]->tableName() . "." . $common_column[$key];
+      }
+    }
+    $sql .= " $sql_where $order_sql $pagination_sql";
+    $sql_fetch_count = "SELECT COUNT(*) AS count FROM $mainTablename $sql_where";
+
+    $statement = $this->PDO->prepare($sql);
+    $statementCount = $this->PDO->prepare($sql_fetch_count);
+
+    foreach ($where as $key => $item) {
+      // var_dump(property_exists($this, $key));
+      $statement->bindValue(":$key", $item);
+      $statementCount->bindValue(":$key", $item);
+    }
+    foreach ($search_columns as $key => $item) {
+      // var_dump(property_exists($this, $key));
+      $statement->bindValue(":$key", "%$item%");
+      $statementCount->bindValue(":$key", "%$item%");
+    }
+
+    $statement->execute();
+
+    $result = array();
+    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+      $result['data'][] = $row;
+    }
+    //  Pagination Data 
+    if ($result && $current_page !== false && $page_limit) {
+      $statementCount->execute();
+      $total_rows = $statementCount->fetch(PDO::FETCH_ASSOC)['count'];
+
+      $pages = round($total_rows / ($page_limit));
+      $result['paginator'] = [
+        "current_page" => $current_page === 0 ? 1 : $current_page,
+        "total_pages" =>  $pages ? $pages : 1,
+        "page_limit" => $page_limit,
+        "order_by" => $order_by,
+        "total_rows" => $total_rows,
+      ];
+    }
+    return $result;
+  }
+  // Search A Collection Join
+  public function search(
+    array $where = [],
+    array $search_columns = [],
+    array $columns = [],
+    array $pagination = []
+  ) {
+    $select_list = " * ";
+    if ($columns && is_array($columns)) {
+      $select_list = implode(", ", $columns);
+    }
+
+    // Working with Pagination
+    $pagination_sql = '';
+    $current_page = $pagination['current_page'] ?? false;
+    $page_limit = $pagination['page_limit'] ?? false;
+    $start_at = $pagination['start_at'] ?? 0;
+    if ($current_page !== false && $page_limit) {
+      $base = $current_page === 0 ? $current_page : ($current_page - 1) * $page_limit;
+      $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $page_limit;
+    }
+
+    // ORDER BY CLAUSE
+    // $order_by = $pagination['order_by'] ?? '';
+    $order_by = $pagination['order_by'] ?? false;
+    $order_sql = $order_by ? "ORDER BY "  . $order_by . " DESC" : '';
+
+    // Handling where clause
+    $attributes = array_keys($where);
+    $sql_where = implode(
+      " AND ",
+      array_map(fn ($attr) => $attr . " = :$attr", $attributes)
+    );
+    // Search Algorithm
+    $sql_where .= implode(
+      " OR ",
+      array_map(fn ($col) => $col . " LIKE :$col", array_keys($search_columns))
+    );
+    $tableName = static::tableName();
+
+    $sql_where = $sql_where ? "WHERE $sql_where" : '';
+
+    $sql = "SELECT $select_list FROM " . $tableName;
+
+    $sql .= " $sql_where $order_sql $pagination_sql";
+    $sql_fetch_count = "SELECT COUNT(*) AS count FROM $tableName $sql_where";
+
+    $statement = $this->PDO->prepare($sql);
+    $statementCount = $this->PDO->prepare($sql_fetch_count);
+
+    foreach ($where as $key => $item) {
+      // var_dump(property_exists($this, $key));
+      $statement->bindValue(":$key", $item);
+      $statementCount->bindValue(":$key", $item);
+    }
+    foreach ($search_columns as $key => $item) {
+      // var_dump(property_exists($this, $key));
+      $statement->bindValue(":$key", "%$item%");
+      $statementCount->bindValue(":$key", "%$item%");
+    }
+
+    $statement->execute();
+
+    $result = array();
+    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+      $result['data'][] = $row;
+    }
+    //  Pagination Data 
+    if ($result && $current_page !== false && $page_limit) {
+      $statementCount->execute();
+      $total_rows = $statementCount->fetch(PDO::FETCH_ASSOC)['count'];
+
+      $pages = round($total_rows / ($page_limit));
+      $result['paginator'] = [
+        "current_page" => $current_page === 0 ? 1 : $current_page,
+        "total_pages" =>  $pages ? $pages : 1,
+        "page_limit" => $page_limit,
+        "order_by" => $order_by,
+        "total_rows" => $total_rows,
+      ];
+    }
+    return $result;
+  }
+  // Fetch Custom Query
+  # ---
   // Fetch Data count
-  public function findCount(string $table = null, array $where = [])
+  public function findCount(array $where = [])
   {
-    $tableName = $tableName ?? static::tableName();
+    $tableName = static::tableName();
 
     $attributes = array_keys($where);
 
@@ -229,6 +551,7 @@ abstract class DBModel extends BaseModel
     }
 
     $statement->execute();
-    return $statement->fetch(PDO::FETCH_ASSOC);
+    $data = $statement->fetch(PDO::FETCH_ASSOC);
+    return $data;
   }
 }
