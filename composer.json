@@ -1,11 +1,11 @@
 {
-  "name": "devlee/x-mvc-core",
+  "name": "devlee/php-mvc-core",
   "description": "A PHP data access and manipulation module implementing the mvc pattern",
   "type": "library",
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "Devlee\\mvccore\\": "src/"
+      "Devlee\\PHPMVCCore\\": "src/"
     }
   },
   "authors": [

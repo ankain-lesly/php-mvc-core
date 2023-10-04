@@ -1,4 +1,3 @@
-/vendor
+vendor/
 .vscode
-# composer.lock
-index.php
+app/
