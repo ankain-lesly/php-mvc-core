@@ -9,7 +9,8 @@
 
 namespace Devlee\PHPMVCCore\DB;
 
-use Devlee\PHPMVCCore\Exceptions\CoreException;
+use Devlee\PHPMVCCore\Exceptions\ConnectionException;
+use Devlee\PHPMVCCore\Exceptions\HandleExceptionError;
 use PDO;
 
 /**
@@ -25,48 +26,51 @@ class Database
   private string $DB_NAME;
 
   private static string $ERROR_PROPERTY = "conn_property";
-  private static string $ERROR_FAILED = "conn_failed";
+  private static string $ERROR_CONNECTION = "conn_failed";
 
   public function __construct()
   {
-    $this->DB_HOST = DB_HOST ?: $this->SetServerError(self::$ERROR_PROPERTY);
-    $this->DB_USER = DB_USERNAME ?: $this->SetServerError(self::$ERROR_PROPERTY);
-    $this->DB_PASSWORD = DB_PASSWORD ?: "";
-    $this->DB_NAME = DB_NAME ?: $this->SetServerError(self::$ERROR_PROPERTY);
+    $this->DB_HOST = $_ENV['DB_HOST'] ?? $this->handleError(self::$ERROR_PROPERTY);
+    $this->DB_USER = $_ENV['DB_USERNAME'] ?? $this->handleError(self::$ERROR_PROPERTY);
+    $this->DB_PASSWORD = $_ENV['DB_PASSWORD'] ?? "";
+    $this->DB_NAME = $_ENV['DB_NAME'] ?? $this->handleError(self::$ERROR_PROPERTY);
   }
 
   public function connect(): PDO
   {
     try {
+      // $options = [
+      //   PDO::ATTR_EMULATE_PREPARES   => false,
+      //   PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+      // ];
       $dns = 'mysql:host=' . $this->DB_HOST . ';dbname=' . $this->DB_NAME;
       $pdo = new PDO($dns, $this->DB_USER, $this->DB_PASSWORD);
 
       $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
       return $pdo;
-    } catch (\PDOException $error) {
-      $this->SetServerError(self::$ERROR_FAILED);
+    } catch (\PDOException $e) {
+      $this->handleError(self::$ERROR_CONNECTION,  $e);
     }
   }
 
-  private function SetServerError(string $error_type)
+  private function handleError(string $error_type, \Throwable $e = null)
   {
     // TODO:
     switch ($error_type) {
-      case self::$ERROR_PROPERTY:
-        $message = "All database connection properties are required in the config.php file";
-        die($message);
-        // throw new CoreException($message, 404);
+      case self::$ERROR_CONNECTION:
+        $message = $e->getMessage() . " >>> Error creating connections with server...";
+        // $message = " >>> Error creating connections with server...";
+        HandleExceptionError::ErrorFromData("Connection Error", $message, $e->getCode());
         break;
-      case self::$ERROR_FAILED:
-        $message = "Error creating connections with server...";
-        die($message);
-        // throw new CoreException($message, 500);
+
+      case self::$ERROR_PROPERTY:
+        $message = ">>> All database connection properties are required in the config.php file";
+        throw new ConnectionException($message);
         break;
 
       default:
-        $message = "Unknown Error";
-        die($message);
-        // throw new CoreException($message, 501);
+        $message = " >>> Unknown Error";
+        throw new ConnectionException($message);
         break;
     }
   }

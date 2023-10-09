@@ -3,7 +3,8 @@
 /**
  * User: Dev_Lee
  * Date: 06/29/2023 - Time: 6:00 AM
- * Updated: 10/03/2023 - Time: 11:54 PM
+ * Updated: 10/03/2023 - Time: 9:30 PM
+ * Updated: 10/06/2023 - Time: 10:00 AM
  */
 
 
@@ -11,17 +12,10 @@ namespace Devlee\PHPMVCCore\Exceptions;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\Exceptions\CoreException
+ * @package  php-mvc-core
  */
 
-
-interface CustomException
-{
-  public function getTitle();
-}
-
-
-class CoreException extends \Exception implements CustomException
+abstract class BaseException extends \Exception
 {
   private const VALIDATION_ERROR = 400;
   private const UNAUTHORIZED = 401;
@@ -30,37 +24,34 @@ class CoreException extends \Exception implements CustomException
   private const SERVER_ERROR = 500;
   private const ROUTER_DIR_ERROR = 444;
 
-  protected $message;
-  protected $code;
-  protected $title;
+  // protected $message;
+  // protected $code;
+  protected string $title = "";
 
-  public function __construct(string $message, int $code = 500)
+  public function __construct(string $message, int $code = 0, string $title = null)
   {
     $this->message = $message;
+    if (!$title) {
+      $this->title = self::getExceptionTitleCode($code);
+    }
     $this->code = $code;
-    $this->title = self::getErrorTitle($code);
-    HandleErrors::DisplayErrorMessage($this);
   }
 
-  public function getTitle()
+  public static function getExceptionTitleCode($code)
   {
-    return $this->title;
-  }
-  public static function getErrorTitle($code)
-  {
-    $statusObjectErrors = array(
+    $objectMessages = array(
       self::VALIDATION_ERROR => [
         "code" => self::VALIDATION_ERROR,
         "title" => "Validation Failed",
       ],
       self::ROUTER_DIR_ERROR => [
         "code" => self::ROUTER_DIR_ERROR,
-        "title" => "Error Getting View File",
+        "title" => "Error Getting File",
       ],
       self::NOT_FOUND => [
         "code" => self::NOT_FOUND,
         // "title" => "Resource Not Found",
-        "title" => "Error Getting View File",
+        "title" => "Error Getting File",
       ],
       self::FORBIDDEN => [
         "code" => self::FORBIDDEN,
@@ -76,6 +67,12 @@ class CoreException extends \Exception implements CustomException
       ],
     );
 
-    return $statusObjectErrors[$code]['title'] ?? "Unknown Request";
+    $message = $code ? $objectMessages[$code] : "Uncaught Error";
+    return $message['title'] ?? "Uncaught Error";
+  }
+
+  public function getTitle()
+  {
+    return $this->title;
   }
 }
