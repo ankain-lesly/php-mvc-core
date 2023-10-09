@@ -28,20 +28,12 @@ abstract class Model extends BaseModel
     // $attributes = $this->attributes();
 
     $results = $this->generateSQLParams($data);
-    // foreach (array_keys($data) as  $attr) {
-    //   if (property_exists($this, $attr) && isset($this->{$attr}))
-    //     $params[] =  $attr;
-    // }
 
     $sql = "INSERT INTO $tableName (" . $results['attributes'] . ")
             VALUES (" . $results['params'] . ")";
 
     $statement = $this->prepareStatementParams($sql, $data);
 
-    // foreach ($params as $attr) {
-    //   if (property_exists($this, $attr))
-    //     $statement->bindValue(":$attr", $this->{$attr});
-    // }
     $statement->execute();
     return $this->PDO->lastInsertId();
   }
@@ -51,16 +43,8 @@ abstract class Model extends BaseModel
   {
     $tableName = $this->tableName();
 
-    // $attributes = array_keys($data);
-    // $attr_data = array_keys($data);
-    // $attr_where = array_keys($where);
-
     $sql_where = $this->generateSQLWhere(array_keys($where));
 
-    // foreach ($attr_where as $attr) {
-    //   if (property_exists($this, $attr))
-    //     $sql_where[] =  "$attr = :$attr";
-    // }
 
     $params = [];
 
@@ -69,27 +53,10 @@ abstract class Model extends BaseModel
         $params[] =  "$attr = :$attr";
     }
 
-    // foreach ($attr_data as $attr) {
-    //   if (property_exists($this, $attr))
-    //     $params[] =  "$attr = :$attr";
-    // }
-
     $sql = "UPDATE $tableName SET " . implode(",", $params) . $sql_where;
 
-    // exit($sql);
-    // $statement = $this->PDO->prepare($sql);
     $statement = $this->prepareStatementParams($sql, $data);
-
-    // foreach ($attr_data as $attr) {
-    //   if (property_exists($this, $attr))
-    //     $statement->bindValue(":$attr", $data[$attr]);
-    // }
     $statement = $this->bindStatementParams($statement, $where);
-
-    // foreach ($attr_where as $attr) {
-    //   if (property_exists($this, $attr))
-    //     $statement->bindValue(":$attr", $where[$attr]);
-    // } 
 
     return $statement->execute();
   }
@@ -110,7 +77,6 @@ abstract class Model extends BaseModel
   }
 
   // Find Single Object 
-  // public function findOne(array $where, array $columns = [], string $selector = 'AND')
   public function findOne(array $where, array $columns = [])
   {
     $select_list = " * ";
@@ -146,14 +112,6 @@ abstract class Model extends BaseModel
       $is_paginator = true;
       $pagination_sql = $this->generateSQLPagination($pagination);
     }
-    // $index = $pagination['index'] ?? false;
-    // $per_page = $pagination['per_page'] ?? false;
-    // $start_at = $pagination['start_at'] ?? 0;
-
-    // if ($index !== false && $per_page) {
-    //   $base = $index === 0 ? $index : ($index - 1) * $per_page;
-    //   $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $per_page;
-    // }
 
     // ORDER BY CLAUSE
     // $order_by = $pagination['order_by'] ?? false;
@@ -193,250 +151,14 @@ abstract class Model extends BaseModel
     return $result;
   }
 
-  // Find A Collection Join
-  /*
-  public function findOneJoin(
-    array $models,
-    array $common_column,
-    array $where = [],
-    array $columns = []
-  ) {
-    // Getting Table names
-    $Attributes = array();
-
-    $mainTablename = static::tableName();
-    $MainPrefixes = substr($this->tableName(), 3, 1) . "_";
-
-    // Creating Select attributes
-    $Attributes = implode(",", array_map(fn ($attr) => $mainTablename . ".$attr AS " . $MainPrefixes . $attr, $this->attributes()));
-
-    foreach ($models as $key => $model) {
-      $modelPrefix = substr($model->tableName(), 3, 1) . "_";
-      $Attributes .= ", ";
-      $Attributes .= implode(",", array_map(fn ($attr) => $model->tableName() . ".$attr AS " . $modelPrefix . $attr, $model->attributes()));
-    }
-
-    // Handling where clause
-    $attributes = array_keys($where);
-
-    $sql_where = implode(
-      " AND ",
-      array_map(fn ($attr) => $mainTablename . '.' . $attr . " = :$attr", $attributes)
-    );
-
-    $sql_where = $sql_where ? "WHERE $sql_where" : '';
-
-    $sql = "SELECT $Attributes FROM " . $mainTablename;
-    foreach ($models as $key => $model) {
-      $sql .= " INNER JOIN " . $model->tableName();
-      if ($key === 0) {
-        $sql .= " ON " . $mainTablename . "." . $common_column[$key] . " = " . $model->tableName() . "." . $common_column[$key];
-      } else {
-        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $common_column[$key] . " = " . $models[$key]->tableName() . "." . $common_column[$key];
-      }
-    }
-    $sql .= " $sql_where";
-
-    $statement = $this->PDO->prepare($sql);
-    foreach ($where as $key => $item) {
-      $statement->bindValue(":$key", $item);
-    }
-    $statement->execute();
-    return $statement->fetch(PDO::FETCH_ASSOC);
-  }
-  */
+  // Find An Object Join 
 
   // Find A Collection Join
-  /*
-  public function findAllJoin(
-    array $models,
-    array $common_column,
-    array $where = [],
-    array $columns = [],
-    array $pagination = []
-  ) {
-    // Getting Table names
-    $Attributes = array();
 
-    $mainTablename = static::tableName();
-    $MainPrefixes = substr($this->tableName(), 3, 1) . "_";
-
-    // Creating Select attributes
-    $Attributes = implode(",", array_map(fn ($attr) => $mainTablename . ".$attr AS " . $MainPrefixes . $attr, $this->attributes()));
-
-    foreach ($models as $key => $model) {
-      $modelPrefix = substr($model->tableName(), 3, 1) . "_";
-      $Attributes .= ", ";
-      $Attributes .= implode(",", array_map(fn ($attr) => $model->tableName() . ".$attr AS " . $modelPrefix . $attr, $model->attributes()));
-    }
-
-    // Working with Pagination
-    $pagination_sql = '';
-    $index = $pagination['index'] ?? false;
-    $per_page = $pagination['per_page'] ?? false;
-    $start_at = $pagination['start_at'] ?? 0;
-    if ($index !== false && $per_page) {
-      $base = $index === 0 ? $index : ($index - 1) * $per_page;
-      $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $per_page;
-    }
-
-    // ORDER BY CLAUSE
-    // $order_by = $pagination['order_by'] ?? '';
-    $order_by = $pagination['order_by'] ?? false;
-    $order_by_sql = $order_by ? "ORDER BY " . $mainTablename . '.' . $order_by . " DESC" : '';
-
-    // Handling where clause
-    $attributes = array_keys($where);
-
-    $sql_where = implode(
-      " AND ",
-      array_map(fn ($attr) => $mainTablename . '.' . $attr . " = :$attr", $attributes)
-    );
-
-    $sql_where = $sql_where ? "WHERE $sql_where" : '';
-
-    $sql = "SELECT $Attributes FROM " . $mainTablename;
-    foreach ($models as $key => $model) {
-      $sql .= " INNER JOIN " . $model->tableName();
-      if ($key === 0) {
-        $sql .= " ON " . $mainTablename . "." . $common_column[$key] . " = " . $model->tableName() . "." . $common_column[$key];
-      } else {
-        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $common_column[$key] . " = " . $models[$key]->tableName() . "." . $common_column[$key];
-      }
-    }
-    $sql .= " $sql_where $order_by_sql $pagination_sql";
-    $statement = $this->PDO->prepare($sql);
-    foreach ($where as $key => $item) {
-      $statement->bindValue(":$key", $item);
-    }
-    $statement->execute();
-
-    $result = array();
-    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-      $result['data'][] = $row;
-    }
-
-    //  Pagination Data 
-    if ($result && $index !== false && $per_page) {
-      $total = $this->findCount($where)['count']  - $start_at;
-
-      $pages = round($total / ($per_page));
-      $result['paginator'] = $pagination = [
-        "index" => $index === 0 ? 1 : $index,
-        "total_pages" =>  $pages ? $pages : 1,
-        "per_page" => $per_page,
-        "order_by" => $order_by,
-        "total" => $total,
-      ];
-    }
-    return $result;
-  }
-  */
 
   // Search A Collection Join
-  /*
-  public function searchJoin(
-    array $models,
-    array $common_column,
-    array $where = [],
-    array $search_columns = [],
-    array $pagination = []
-  ) {
-    // Getting Table names
-    $Attributes = array();
 
-    $mainTablename = static::tableName();
-    $MainPrefixes = substr($this->tableName(), 3, 1) . "_";
-
-    // Creating Select attributes
-    $Attributes = implode(",", array_map(fn ($attr) => $mainTablename . ".$attr AS " . $MainPrefixes . $attr, $this->attributes()));
-
-    foreach ($models as $key => $model) {
-      $modelPrefix = substr($model->tableName(), 3, 1) . "_";
-      $Attributes .= ", ";
-      $Attributes .= implode(",", array_map(fn ($attr) => $model->tableName() . ".$attr AS " . $modelPrefix . $attr, $model->attributes()));
-    }
-
-    // Working with Pagination
-    $pagination_sql = '';
-    $index = $pagination['index'] ?? false;
-    $per_page = $pagination['per_page'] ?? false;
-    $start_at = $pagination['start_at'] ?? 0;
-    if ($index !== false && $per_page) {
-      $base = $index === 0 ? $index : ($index - 1) * $per_page;
-      $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $per_page;
-    }
-
-    // ORDER BY CLAUSE
-    // $order_by = $pagination['order_by'] ?? '';
-    $order_by = $pagination['order_by'] ?? false;
-    $order_by_sql = $order_by ? "ORDER BY " . $mainTablename . '.' . $order_by . " DESC" : '';
-
-    // Handling where clause
-    $attributes = array_keys($where);
-    $sql_where = implode(
-      " AND ",
-      array_map(fn ($attr) => $mainTablename . '.' . $attr . " = :$attr", $attributes)
-    );
-    // Search Algorithm
-    $sql_where .= implode(
-      " OR ",
-      array_map(fn ($col) => $mainTablename . '.' . $col . " LIKE :$col", array_keys($search_columns))
-    );
-
-    $sql_where = $sql_where ? "WHERE $sql_where" : '';
-
-    $sql = "SELECT $Attributes FROM " . $mainTablename;
-
-    foreach ($models as $key => $model) {
-      $sql .= " INNER JOIN " . $model->tableName();
-      if ($key === 0) {
-        $sql .= " ON " . $mainTablename . "." . $common_column[$key] . " = " . $model->tableName() . "." . $common_column[$key];
-      } else {
-        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $common_column[$key] . " = " . $models[$key]->tableName() . "." . $common_column[$key];
-      }
-    }
-    $sql .= " $sql_where $order_by_sql $pagination_sql";
-    $sql_fetch_count = "SELECT COUNT(*) AS count FROM $mainTablename $sql_where";
-
-    $statement = $this->PDO->prepare($sql);
-    $statementCount = $this->PDO->prepare($sql_fetch_count);
-
-    foreach ($where as $key => $item) {
-      // var_dump(property_exists($this, $key));
-      $statement->bindValue(":$key", $item);
-      $statementCount->bindValue(":$key", $item);
-    }
-    foreach ($search_columns as $key => $item) {
-      // var_dump(property_exists($this, $key));
-      $statement->bindValue(":$key", "%$item%");
-      $statementCount->bindValue(":$key", "%$item%");
-    }
-
-    $statement->execute();
-
-    $result = array();
-    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-      $result['data'][] = $row;
-    }
-    //  Pagination Data 
-    if ($result && $index !== false && $per_page) {
-      $statementCount->execute();
-      $total = $statementCount->fetch(PDO::FETCH_ASSOC)['count'];
-
-      $pages = round($total / ($per_page));
-      $result['paginator'] = [
-        "index" => $index === 0 ? 1 : $index,
-        "total_pages" =>  $pages ? $pages : 1,
-        "per_page" => $per_page,
-        "order_by" => $order_by,
-        "total" => $total,
-      ];
-    }
-    return $result;
-  }
-  */
-  // Search A Collection Join
+  // Search An Object Join
   public function search(
     array $where = [],
     array $search = [],
@@ -459,14 +181,6 @@ abstract class Model extends BaseModel
       $pagination_sql = $this->generateSQLPagination($pagination);
     }
 
-    // $index = $pagination['index'] ?? false;
-    // $per_page = $pagination['per_page'] ?? false;
-    // $start_at = $pagination['start_at'] ?? 0;
-    // if ($index !== false && $per_page) {
-    //   $base = $index === 0 ? $index : ($index - 1) * $per_page;
-    //   $pagination_sql = "LIMIT " . ($base + $start_at) . ", " . $per_page;
-    // }
-
     // ORDER BY CLAUSE
     // $order_by = $pagination['order_by'] ?? '';
     // $order_by = $pagination['order_by'] ?? false;
@@ -478,17 +192,7 @@ abstract class Model extends BaseModel
     $attr_search = array_keys($search);
 
     $sql_where = $this->generateSQLWhere($attr_where);
-    // $sql_where = implode(
-    //   " AND ",
-    //   array_map(fn ($attr) => $attr . " = :$attr", $attributes)
-    // );
-    // Search Algorithm
-    // $sql_where .= implode(
-    //   " OR ",
-    //   array_map(fn ($col) => $col . " LIKE :$col", array_keys($search_columns))
-    // );
 
-    // $sql_where .= $this->generateSQLWhere($search, "OR", "LIKE");
     $search_term = $this->generateSQLWhere($attr_search, "OR", "LIKE");
     $sql_where .= $sql_where ?
       str_replace(' WHERE ', ' AND (', $search_term) . ")" :
@@ -502,8 +206,6 @@ abstract class Model extends BaseModel
     $statementCount = $this->PDO->prepare($sql_fetch_count);
     $statement = $this->PDO->prepare($sql);
 
-    // $statement = $this->prepareStatementParams($sql, $where);
-    // $statementCount = $this->prepareStatementParams($sql_fetch_count, $where);
     foreach ($where as $attr => $value) {
       if (property_exists($this, $attr)) {
         $statement->bindValue(":$attr", $value);
