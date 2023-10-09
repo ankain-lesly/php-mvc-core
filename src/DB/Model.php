@@ -636,9 +636,7 @@ abstract class Model extends BaseModel
   }
   private function generatePaginator(int $total, int $cur_page, int $per_page)
   {
-
-    // TODO:
-    $total_pages = round($total / $per_page);
+    $total_pages = ceil($total / $per_page);
 
     $pages = $total_pages ? $total_pages : 1;
     $cur_page = $cur_page <= 0 ? 1 : $cur_page;
