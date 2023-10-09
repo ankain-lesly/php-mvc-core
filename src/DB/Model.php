@@ -1,5 +1,5 @@
 <?php
-// declare(strict_type, 1);
+
 /**
  * User: Dev_Lee
  * Date: 06/29/2023 - Time: 6:00 AM
@@ -22,6 +22,11 @@ abstract class Model extends BaseModel
 {
   abstract public static function tableName(): string;
 
+  /**
+   * Insert data into the Database Table
+   * @method create
+   * @return int
+   */
   public function create(array $data)
   {
     $tableName = $this->tableName();
@@ -38,13 +43,16 @@ abstract class Model extends BaseModel
     return $this->PDO->lastInsertId();
   }
 
-  // Update Data
+  /**
+   * Update data in a Database Table 
+   * @method update
+   * @return bool
+   */
   public function update(array $data, array $where)
   {
     $tableName = $this->tableName();
 
     $sql_where = $this->generateSQLWhere(array_keys($where));
-
 
     $params = [];
 
@@ -60,7 +68,12 @@ abstract class Model extends BaseModel
 
     return $statement->execute();
   }
-  // Delete Data
+
+  /**
+   * Delete rows from the Database table 
+   * @method delete
+   * @return bool
+   */
   public function delete(array $where)
   {
     $tableName = static::tableName();
@@ -76,7 +89,11 @@ abstract class Model extends BaseModel
     return $statement->rowCount();
   }
 
-  // Find Single Object 
+  /**
+   * Fetch a single rows from the Database 
+   * @method findOne
+   * @return array
+   */
   public function findOne(array $where, array $columns = [])
   {
     $select_list = " * ";
@@ -95,8 +112,11 @@ abstract class Model extends BaseModel
     return $statement->fetch(PDO::FETCH_ASSOC);
   }
 
-
-  // Find a Collection of objects
+  /**
+   * Fetch a collection of rows from the Database 
+   * @method findAll
+   * @return array
+   */
   public function findAll(
     array $where = [],
     array $columns = null,
@@ -151,14 +171,34 @@ abstract class Model extends BaseModel
     return $result;
   }
 
+
+  /**
+   * Fetch a single row of data from multiple tables 
+   * @method findOneJoin
+   * @return array
+   */
   // Find An Object Join 
 
+  /**
+   * Fetch data from multiple tables 
+   * @method findAllJoin
+   * @return array
+   */
   // Find A Collection Join
 
 
+  /**
+   * Search a collection of data from multiple tables 
+   * @method findAllJoin
+   * @return array
+   */
   // Search A Collection Join
 
-  // Search An Object Join
+  /**
+   * Search a single row of data
+   * @method search
+   * @return array
+   */
   public function search(
     array $where = [],
     array $search = [],
