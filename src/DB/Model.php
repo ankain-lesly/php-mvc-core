@@ -8,9 +8,8 @@
 
 namespace Devlee\PHPMVCCore\DB;
 
-use PDO;
-
 use Devlee\PHPMVCCore\BaseModel;
+use Devlee\PHPMVCCore\Exceptions\PropertyNotFoundException;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
@@ -32,7 +31,7 @@ abstract class Model extends BaseModel
     $tableName = $this->tableName();
     // $attributes = $this->attributes();
 
-    $results = $this->generateSQLParams($data);
+    $results = $this->generateSQLParams(array_keys($data));
 
     $sql = "INSERT INTO $tableName (" . $results['attributes'] . ")
             VALUES (" . $results['params'] . ")";
@@ -57,8 +56,9 @@ abstract class Model extends BaseModel
     $params = [];
 
     foreach (array_keys($data) as $attr) {
-      if (property_exists($this, $attr))
-        $params[] =  "$attr = :$attr";
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $params[] =  "$attr = :$attr";
     }
 
     $sql = "UPDATE $tableName SET " . implode(",", $params) . $sql_where;
@@ -94,11 +94,11 @@ abstract class Model extends BaseModel
    * @method findOne
    * @return array
    */
-  public function findOne(array $where, array $columns = [])
+  public function findOne(array $where, array $select = [])
   {
     $select_list = " * ";
-    if ($columns) {
-      $select_list = implode(", ", $columns);
+    if ($select) {
+      $select_list = implode(", ", $select);
     }
 
     $tableName = static::tableName();
@@ -109,7 +109,7 @@ abstract class Model extends BaseModel
 
     $statement = $this->prepareStatementParams($sql, $where);
     $statement->execute();
-    return $statement->fetch(PDO::FETCH_ASSOC);
+    return $statement->fetch() || [];
   }
 
   /**
@@ -119,7 +119,7 @@ abstract class Model extends BaseModel
    */
   public function findAll(
     array $where = [],
-    array $columns = null,
+    array $select = [],
     array $pagination = []
   ) {
     $tableName = static::tableName();
@@ -133,15 +133,13 @@ abstract class Model extends BaseModel
       $pagination_sql = $this->generateSQLPagination($pagination);
     }
 
-    // ORDER BY CLAUSE
-    // $order_by = $pagination['order_by'] ?? false;
-    // $order_by_sql = $order_by ? "ORDER BY " . $this->tableName() . '.' . $order_by . " DESC" : '';
-    $order_by_sql = '';
+    # Order By >>>
+    $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false);
 
     # Select Custom attributes
     $select_list = " * ";
-    if ($columns && is_array($columns)) {
-      $select_list = implode(", ", $columns);
+    if ($select) {
+      $select_list = implode(", ", $select);
     }
 
     #` Handling where clause
@@ -154,7 +152,7 @@ abstract class Model extends BaseModel
     $statement->execute();
 
     $result = array();
-    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+    while ($row = $statement->fetch()) {
       $result['data'][] = $row;
     }
 
@@ -177,22 +175,323 @@ abstract class Model extends BaseModel
    * @method findOneJoin
    * @return array
    */
-  // Find An Object Join 
+  public function findOneJoin(
+    array $models,
+    array $relations,
+    array $where = [],
+    array $select = []
+  ) {
+    $mainTablename = static::tableName();
+
+    $attributes = '';
+    if ($select && is_string($select[0])) {
+      foreach ($select as $key => $attr) {
+        if ($key !== 0)
+          $attributes .= ', ';
+
+        if (!property_exists($this, $attr))
+          throw new PropertyNotFoundException($attr, static::class);
+        $attributes .= $mainTablename . '.' . $attr;
+      }
+    } else if ($select && is_array($select[0])) {
+      foreach ($select as $modelKey => $attrs) {
+        foreach ($attrs as $key => $attr) {
+          if ($key !== 0 || $modelKey !== 0)
+            $attributes .= ', ';
+          $model = null;
+          if ($modelKey !== 0) {
+            $model = $models[$modelKey - 1];
+          } else {
+            $model = $this;
+          }
+          if (!property_exists($model, $attr))
+            throw new PropertyNotFoundException($attr, static::class);
+          $attributes .= $model::tableName() . '.' . $attr;
+        }
+      }
+    } else {
+      $attributes = $mainTablename . '.* ';
+      foreach ($models as $key => $model) {
+        $modelPrefix = $model->tableName() . '.* ';
+        $attributes .= ", " . $modelPrefix;
+      }
+    }
+
+    // Handling where clause
+    $join_where = array();
+    foreach (array_keys($where) as $attr) {
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $join_where[] = $mainTablename . '.' . $attr . ' = :' . $attr;
+    }
+    $attr_where = $join_where ? " WHERE " . implode(" AND ", $join_where) : '';
+
+    // SQL
+    $sql = "SELECT $attributes FROM " . $mainTablename;
+
+    foreach ($models as $key => $model) {
+      $sql .= " INNER JOIN " . $model->tableName();
+      if ($key === 0) {
+        $sql .= " ON " . $mainTablename . "." . $relations[$key] . " = "
+          . $model->tableName() . "." . $relations[$key];
+      } else {
+        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $relations[$key] . " = "
+          . $models[$key]->tableName() . "." . $relations[$key];
+      }
+    }
+    $sql .= $attr_where;
+
+    $statement = $this->prepareStatementParams($sql, $where);
+    $statement->execute();
+    return $statement->fetch();
+  }
 
   /**
    * Fetch data from multiple tables 
    * @method findAllJoin
    * @return array
    */
-  // Find A Collection Join
+  public function findAllJoin(
+    array $models,
+    array $relations,
+    array $where = [],
+    array $select = [],
+    array $pagination = []
+  ) {
+    $mainTablename = static::tableName();
 
+    $attributes = '';
+    if ($select && is_string($select[0])) {
+      foreach ($select as $key => $attr) {
+        if ($key !== 0)
+          $attributes .= ', ';
+
+        if (!property_exists($this, $attr))
+          throw new PropertyNotFoundException($attr, static::class);
+        $attributes .= $mainTablename . '.' . $attr;
+      }
+    } else if ($select && is_array($select[0])) {
+      foreach ($select as $modelKey => $attrs) {
+        foreach ($attrs as $key => $attr) {
+          if ($key !== 0 || $modelKey !== 0)
+            $attributes .= ', ';
+          $model = null;
+          if ($modelKey !== 0) {
+            $model = $models[$modelKey - 1];
+          } else {
+            $model = $this;
+          }
+          if (!property_exists($model, $attr))
+            throw new PropertyNotFoundException($attr, static::class);
+          $attributes .= $model::tableName() . '.' . $attr;
+        }
+      }
+    } else {
+      $attributes = $mainTablename . '.* ';
+
+      foreach ($models as $key => $model) {
+        $modelPrefix = $model->tableName() . '.* ';
+        $attributes .= ", " . $modelPrefix;
+      }
+    }
+
+    // Handling where clause
+    $join_where = array();
+    foreach (array_keys($where) as $attr) {
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $join_where[] = $mainTablename . '.' . $attr . ' = :' . $attr;
+    }
+    $attr_where = $join_where ? " WHERE " . implode(" AND ", $join_where) : '';
+
+    # Pagination
+    $is_paginator = false;
+    $pagination_sql = "";
+
+    if (isset($pagination['cur_page']) && isset($pagination['per_page'])) {
+      $is_paginator = true;
+      $pagination_sql = $this->generateSQLPagination($pagination);
+    }
+
+    # Order By >>>
+    $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false, true);
+
+    // SQL
+    $sql = "SELECT $attributes FROM " . $mainTablename;
+
+    foreach ($models as $key => $model) {
+      $sql .= " INNER JOIN " . $model->tableName();
+      if ($key === 0) {
+        $sql .= " ON " . $mainTablename . "." . $relations[$key] . " = "
+          . $model->tableName() . "." . $relations[$key];
+      } else {
+        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $relations[$key] . " = "
+          . $models[$key]->tableName() . "." . $relations[$key];
+      }
+    }
+    $sql .= "$attr_where $order_by_sql $pagination_sql";
+
+    $statement = $this->prepareStatementParams($sql, $where);
+    $statement->execute();
+
+    $result = array();
+    while ($row = $statement->fetch()) {
+      $result['data'][] = $row;
+    }
+
+    # Setting up Pagination Data 
+    if ($result &&  $is_paginator) {
+      $total = $this->findCount($where)['count']  - ($pagination['start_at'] ?? 0);
+
+      $result['paginator'] = $this->generatePaginator(
+        (int) $total,
+        (int) $pagination['cur_page'],
+        (int) $pagination['per_page'],
+      );
+    }
+    return $result;
+  }
 
   /**
    * Search a collection of data from multiple tables 
-   * @method findAllJoin
+   * @method searchJoin
    * @return array
    */
-  // Search A Collection Join
+  public function searchJoin(
+    array $models,
+    array $relations,
+    array $search,
+    array $where = [],
+    array $select = [],
+    array $pagination = []
+  ) {
+    $mainTablename = static::tableName();
+
+    $attributes = '';
+    if ($select && is_string($select[0])) {
+      foreach ($select as $key => $attr) {
+        if ($key !== 0)
+          $attributes .= ', ';
+
+        if (!property_exists($this, $attr))
+          throw new PropertyNotFoundException($attr, static::class);
+        $attributes .= $mainTablename . '.' . $attr;
+      }
+    } else if ($select && is_array($select[0])) {
+      foreach ($select as $modelKey => $attrs) {
+        foreach ($attrs as $key => $attr) {
+          if ($key !== 0 || $modelKey !== 0)
+            $attributes .= ', ';
+          $model = null;
+          if ($modelKey !== 0) {
+            $model = $models[$modelKey - 1];
+          } else {
+            $model = $this;
+          }
+          if (!property_exists($model, $attr))
+            throw new PropertyNotFoundException($attr, static::class);
+          $attributes .= $model::tableName() . '.' . $attr;
+        }
+      }
+    } else {
+      $attributes = $mainTablename . '.* ';
+
+      foreach ($models as $key => $model) {
+        $modelPrefix = $model->tableName() . '.* ';
+        $attributes .= ", " . $modelPrefix;
+      }
+    }
+
+    // Handling where clause
+    $join_where = array();
+    foreach (array_keys($where) as $attr) {
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $join_where[] = $mainTablename . '.' . $attr . ' = :' . $attr;
+    }
+    $sql_where = $join_where ? " WHERE " . implode(" AND ", $join_where) : '';
+
+    // Handling where clause
+    $join_search = array();
+    foreach (array_keys($search) as $attr) {
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $join_search[] = $mainTablename . '.' . $attr . ' LIKE :' . $attr;
+    }
+
+    $join_search = implode(" OR ", $join_search);
+    $join_search = " ( $join_search ) ";
+
+    $sql_where .= $join_where ? " AND " . $join_search : " WHERE " . $join_search;
+
+    # Pagination
+    $is_paginator = false;
+    $pagination_sql = "";
+
+    if (isset($pagination['cur_page']) && isset($pagination['per_page'])) {
+      $is_paginator = true;
+      $pagination_sql = $this->generateSQLPagination($pagination);
+    }
+
+    # Order By >>>
+    $order_by_sql = "";
+    if (isset($pagination['order_by'])) {
+      $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false, true);
+    }
+    // SQL
+    $sql = "SELECT $attributes FROM " . $mainTablename;
+
+    foreach ($models as $key => $model) {
+      $sql .= " INNER JOIN " . $model->tableName();
+      if ($key === 0) {
+        $sql .= " ON " . $mainTablename . "." . $relations[$key] . " = "
+          . $model->tableName() . "." . $relations[$key];
+      } else {
+        $sql .= " ON " . $models[$key - 1]->tableName() . "." . $relations[$key] . " = "
+          . $models[$key]->tableName() . "." . $relations[$key];
+      }
+    }
+
+    $sql .= "$sql_where $order_by_sql $pagination_sql";
+    $sql_fetch_count = "SELECT COUNT(*) AS count FROM $mainTablename $sql_where";
+
+    $statementCount = $this->PDO->prepare($sql_fetch_count);
+    $statement = $this->PDO->prepare($sql);
+
+    foreach ($where as $attr => $value) {
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $statement->bindValue(":$attr", $value);
+      $statementCount->bindValue(":$attr", $value);
+    }
+
+    foreach ($search as $attr => $value) {
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $statement->bindValue(":$attr", "%$value%");
+      $statementCount->bindValue(":$attr", "%$value%");
+    }
+
+    $statement->execute();
+
+    $result = array();
+    while ($row = $statement->fetch()) {
+      $result['data'][] = $row;
+    }
+
+    # Setting up Pagination Data 
+    if ($result &&  $is_paginator) {
+      $statementCount->execute();
+      $total = $statementCount->fetch()['count'];
+
+      $result['paginator'] = $this->generatePaginator(
+        (int) $total,
+        (int) $pagination['cur_page'],
+        (int) $pagination['per_page'],
+      );
+    }
+    return $result;
+  }
 
   /**
    * Search a single row of data
@@ -200,16 +499,16 @@ abstract class Model extends BaseModel
    * @return array
    */
   public function search(
+    array $search,
     array $where = [],
-    array $search = [],
-    array $columns = [],
+    array $select = [],
     array $pagination = []
   ) {
     $tableName = static::tableName();
 
     $select_list = " * ";
-    if ($columns) {
-      $select_list = implode(", ", $columns);
+    if ($select) {
+      $select_list = implode(", ", $select);
     }
 
     # Pagination
@@ -221,11 +520,11 @@ abstract class Model extends BaseModel
       $pagination_sql = $this->generateSQLPagination($pagination);
     }
 
-    // ORDER BY CLAUSE
-    // $order_by = $pagination['order_by'] ?? '';
-    // $order_by = $pagination['order_by'] ?? false;
-    // $order_by_sql = $order_by ? "ORDER BY "  . $order_by . " DESC" : '';
+    # Order By >>>
     $order_by_sql = "";
+    if (isset($pagination['order_by'])) {
+      $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false, true);
+    }
 
     // Handling where clause
     $attr_where = array_keys($where);
@@ -234,9 +533,9 @@ abstract class Model extends BaseModel
     $sql_where = $this->generateSQLWhere($attr_where);
 
     $search_term = $this->generateSQLWhere($attr_search, "OR", "LIKE");
-    $sql_where .= $sql_where ?
-      str_replace(' WHERE ', ' AND (', $search_term) . ")" :
-      $search_term;
+    $search_term = " WHERE ( " . str_replace(' WHERE ', '', $search_term) . " ) ";
+
+    $sql_where .= $sql_where ? str_replace(' WHERE ', ' AND ', $search_term) : $search_term;
 
     $sql = "SELECT $select_list FROM " . $tableName;
     $sql .= " $sql_where $order_by_sql $pagination_sql";
@@ -247,30 +546,30 @@ abstract class Model extends BaseModel
     $statement = $this->PDO->prepare($sql);
 
     foreach ($where as $attr => $value) {
-      if (property_exists($this, $attr)) {
-        $statement->bindValue(":$attr", $value);
-        $statementCount->bindValue(":$attr", $value);
-      }
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $statement->bindValue(":$attr", $value);
+      $statementCount->bindValue(":$attr", $value);
     }
 
     foreach ($search as $attr => $value) {
-      if (property_exists($this, $attr)) {
-        $statement->bindValue(":$attr", "%$value%");
-        $statementCount->bindValue(":$attr", "%$value%");
-      }
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $statement->bindValue(":$attr", "%$value%");
+      $statementCount->bindValue(":$attr", "%$value%");
     }
 
     $statement->execute();
 
     $result = array();
-    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+    while ($row = $statement->fetch()) {
       $result['data'][] = $row;
     }
 
     # Setting up Pagination Data 
     if ($result &&  $is_paginator) {
       $statementCount->execute();
-      $total = $statementCount->fetch(PDO::FETCH_ASSOC)['count'];
+      $total = $statementCount->fetch()['count'];
 
       $result['paginator'] = $this->generatePaginator(
         (int) $total,
@@ -280,8 +579,12 @@ abstract class Model extends BaseModel
     }
     return $result;
   }
+
+  /**
+   * @method Create custom SQL Query
+   */
+
   // Fetch Custom Query
-  # ---
 
   /**
    * @method Fetch Data count
@@ -299,19 +602,21 @@ abstract class Model extends BaseModel
 
     $statement = $this->prepareStatementParams($sql, $where);
     $statement->execute();
-    return $statement->fetch(PDO::FETCH_ASSOC);
+    return $statement->fetch();
   }
 
   /**
    * @method SQL Helper Generate sql params
    * @return array
    */
-  private function generateSQLParams(array $dataObject)
+  private function generateSQLParams(array $data)
   {
     $params = [];
-    foreach (array_keys($dataObject) as  $attr) {
-      if (property_exists($this, $attr) && isset($this->{$attr}))
-        $params[] =  $attr;
+    foreach ($data as  $attr) {
+      // if (property_exists($this, $attr) && isset($this->{$attr}))
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $params[] =  $attr;
     }
     return [
       'attributes' => implode(",", $params),
@@ -327,8 +632,9 @@ abstract class Model extends BaseModel
   {
     $sql_where = [];
     foreach ($attr_where as $attr) {
-      if (property_exists($this, $attr))
-        $sql_where[] =  "$attr $selector :$attr";
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $sql_where[] =  "$attr $selector :$attr";
     }
     return $sql_where ? " WHERE " . implode(" $clause ", $sql_where) : '';
   }
@@ -351,8 +657,9 @@ abstract class Model extends BaseModel
   private function bindStatementParams(\PDOStatement $stmt, array $data)
   {
     foreach ($data as $attr => $value) {
-      if (property_exists($this, $attr))
-        $stmt->bindValue(":$attr", $value);
+      if (!property_exists($this, $attr))
+        throw new PropertyNotFoundException($attr, static::class);
+      $stmt->bindValue(":$attr", $value);
     }
     return $stmt;
   }
@@ -391,5 +698,25 @@ abstract class Model extends BaseModel
       "has_prev" => $cur_page > 1,
       "has_next" => $cur_page < $pages,
     ];
+  }
+
+  private function generateOrderBy($order_by_data, bool $isJoin = false)
+  {
+    // TODO: 
+    $order_by = $this->{"order_by"} ?? "";
+    $direction = $this->{"direction"} ?? false;
+    $direction = $order_by ? ($direction ? $direction : "DESC") : "";
+
+    if (is_array($order_by_data)) {
+      $order_by = $order_by_data[0];
+      $direction = $order_by_data[1];
+    } elseif (is_string($order_by_data)) {
+      $order_by = $order_by_data;
+    }
+
+    if ($isJoin)
+      return $order_by ? "ORDER BY " . $this->{'tableName'}() . ".$order_by $direction" : '';
+    else
+      return $order_by ? "ORDER BY $order_by $direction" : '';
   }
 }

@@ -26,9 +26,9 @@ abstract class BaseException extends \Exception
 
   // protected $message;
   // protected $code;
-  protected string $title = "";
+  // protected string $title = "";
 
-  public function __construct(string $message, int $code = 0, string $title = null)
+  public function __construct(string $message, int $code = 0, protected string $title = '')
   {
     $this->message = $message;
     if (!$title) {
