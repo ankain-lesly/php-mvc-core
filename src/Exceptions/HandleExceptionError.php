@@ -30,7 +30,7 @@ class HandleExceptionError
     exit;
   }
   /**
-   * @param BaseException|Throwable $e getTitle
+   * @param MVCBaseException $e getTitle
    */
   public static function DisplayError(Throwable $e)
   {
@@ -42,7 +42,7 @@ class HandleExceptionError
     echo ($responseView);
     exit;
   }
-  public static function FormatError(BaseException|Throwable $e)
+  public static function FormatError(MVCBaseException $e)
   {
     http_response_code($e->getCode());
 

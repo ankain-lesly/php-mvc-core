@@ -9,14 +9,12 @@
 
 namespace Devlee\PHPMVCCore\Exceptions;
 
-use Exception;
-
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
  * @package  php-mvc-core
  */
 
-class PropertyNotFoundException extends BaseException
+class PropertyNotFoundException extends MVCBaseException
 {
   public function __construct(string $property, string $class)
   {

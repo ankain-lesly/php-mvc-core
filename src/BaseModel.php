@@ -80,12 +80,4 @@ class BaseModel
   {
     return password_verify($string, $hashedString);
   }
-  // public function __call($name, $arguments)
-  // {
-  //   echo '<pre>';
-  //   print_r($name);
-  //   echo '</br>';
-  //   echo '</pre>';
-  //   exit();
-  // }
 }

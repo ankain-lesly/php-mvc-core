@@ -120,7 +120,7 @@ abstract class Model extends BaseModel
   public function findAll(
     array $where = [],
     array $select = [],
-    array $pagination = []
+    array $options = []
   ) {
     $tableName = static::tableName();
 
@@ -128,13 +128,13 @@ abstract class Model extends BaseModel
     $is_paginator = false;
     $pagination_sql = "";
 
-    if (isset($pagination['cur_page']) && isset($pagination['per_page'])) {
+    if (isset($options['cur_page']) && isset($options['per_page'])) {
       $is_paginator = true;
-      $pagination_sql = $this->generateSQLPagination($pagination);
+      $pagination_sql = $this->generateSQLPagination($options);
     }
 
     # Order By >>>
-    $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false);
+    $order_by_sql = $this->generateOrderBy($options['order_by'] ?? false);
 
     # Select Custom attributes
     $select_list = " * ";
@@ -158,12 +158,12 @@ abstract class Model extends BaseModel
 
     # Setting up Pagination Data 
     if ($result &&  $is_paginator) {
-      $total = $this->findCount($where)['count']  - ($pagination['start_at'] ?? 0);
+      $total = $this->findCount($where)['count']  - ($options['start_at'] ?? 0);
 
       $result['paginator'] = $this->generatePaginator(
         (int) $total,
-        (int) $pagination['cur_page'],
-        (int) $pagination['per_page'],
+        (int) $options['cur_page'],
+        (int) $options['per_page'],
       );
     }
     return $result;
@@ -256,7 +256,7 @@ abstract class Model extends BaseModel
     array $relations,
     array $where = [],
     array $select = [],
-    array $pagination = []
+    array $options = []
   ) {
     $mainTablename = static::tableName();
 
@@ -308,13 +308,13 @@ abstract class Model extends BaseModel
     $is_paginator = false;
     $pagination_sql = "";
 
-    if (isset($pagination['cur_page']) && isset($pagination['per_page'])) {
+    if (isset($options['cur_page']) && isset($options['per_page'])) {
       $is_paginator = true;
-      $pagination_sql = $this->generateSQLPagination($pagination);
+      $pagination_sql = $this->generateSQLPagination($options);
     }
 
     # Order By >>>
-    $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false, true);
+    $order_by_sql = $this->generateOrderBy($options['order_by'] ?? false, true);
 
     // SQL
     $sql = "SELECT $attributes FROM " . $mainTablename;
@@ -341,12 +341,12 @@ abstract class Model extends BaseModel
 
     # Setting up Pagination Data 
     if ($result &&  $is_paginator) {
-      $total = $this->findCount($where)['count']  - ($pagination['start_at'] ?? 0);
+      $total = $this->findCount($where)['count']  - ($options['start_at'] ?? 0);
 
       $result['paginator'] = $this->generatePaginator(
         (int) $total,
-        (int) $pagination['cur_page'],
-        (int) $pagination['per_page'],
+        (int) $options['cur_page'],
+        (int) $options['per_page'],
       );
     }
     return $result;
@@ -363,7 +363,7 @@ abstract class Model extends BaseModel
     array $search,
     array $where = [],
     array $select = [],
-    array $pagination = []
+    array $options = []
   ) {
     $mainTablename = static::tableName();
 
@@ -428,15 +428,15 @@ abstract class Model extends BaseModel
     $is_paginator = false;
     $pagination_sql = "";
 
-    if (isset($pagination['cur_page']) && isset($pagination['per_page'])) {
+    if (isset($options['cur_page']) && isset($options['per_page'])) {
       $is_paginator = true;
-      $pagination_sql = $this->generateSQLPagination($pagination);
+      $pagination_sql = $this->generateSQLPagination($options);
     }
 
     # Order By >>>
     $order_by_sql = "";
-    if (isset($pagination['order_by'])) {
-      $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false, true);
+    if (isset($options['order_by'])) {
+      $order_by_sql = $this->generateOrderBy($options['order_by'] ?? false, true);
     }
     // SQL
     $sql = "SELECT $attributes FROM " . $mainTablename;
@@ -486,8 +486,8 @@ abstract class Model extends BaseModel
 
       $result['paginator'] = $this->generatePaginator(
         (int) $total,
-        (int) $pagination['cur_page'],
-        (int) $pagination['per_page'],
+        (int) $options['cur_page'],
+        (int) $options['per_page'],
       );
     }
     return $result;
@@ -502,7 +502,7 @@ abstract class Model extends BaseModel
     array $search,
     array $where = [],
     array $select = [],
-    array $pagination = []
+    array $options = []
   ) {
     $tableName = static::tableName();
 
@@ -515,15 +515,15 @@ abstract class Model extends BaseModel
     $is_paginator = false;
     $pagination_sql = "";
 
-    if (isset($pagination['cur_page']) && isset($pagination['per_page'])) {
+    if (isset($options['cur_page']) && isset($options['per_page'])) {
       $is_paginator = true;
-      $pagination_sql = $this->generateSQLPagination($pagination);
+      $pagination_sql = $this->generateSQLPagination($options);
     }
 
     # Order By >>>
     $order_by_sql = "";
-    if (isset($pagination['order_by'])) {
-      $order_by_sql = $this->generateOrderBy($pagination['order_by'] ?? false, true);
+    if (isset($options['order_by'])) {
+      $order_by_sql = $this->generateOrderBy($options['order_by'] ?? false, true);
     }
 
     // Handling where clause
@@ -573,8 +573,8 @@ abstract class Model extends BaseModel
 
       $result['paginator'] = $this->generatePaginator(
         (int) $total,
-        (int) $pagination['cur_page'],
-        (int) $pagination['per_page'],
+        (int) $options['cur_page'],
+        (int) $options['per_page'],
       );
     }
     return $result;
@@ -672,9 +672,9 @@ abstract class Model extends BaseModel
   {
     $pagination_sql = '';
 
-    $index = $pagination['cur_page'] ?? false;
-    $per_page = $pagination['per_page'] ?? false;
-    $start_at = $pagination['start_at'] ?? 0;
+    $index = $options['cur_page'] ?? false;
+    $per_page = $options['per_page'] ?? false;
+    $start_at = $options['start_at'] ?? 0;
 
     if ($index !== false && $per_page) {
       $base = $index === 0 ? $index : ($index - 1) * $per_page;

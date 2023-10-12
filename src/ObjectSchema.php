@@ -9,6 +9,8 @@
 
 namespace Devlee\PHPMVCCore;
 
+use Devlee\PHPMVCCore\DB\Model;
+
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
  * @package  php-mvc-core
@@ -31,11 +33,11 @@ class ObjectSchema
 
   /**
    * An Instance of a model class
-   * @property $model
+   * @property Model $model
    * 
    */
 
-  public function __construct(public BaseModel $model)
+  public function __construct(public Model $model)
   {
   }
 
@@ -131,10 +133,6 @@ class ObjectSchema
           if ($update_data) return;
           $uniqueAttr = $rule['attribute'] ?? $attribute;
           $where = [$uniqueAttr => $value];
-
-          /**
-           * @method DBModel findOne
-           */
 
           $record = $this->model->findOne($where, [$attribute]);
 

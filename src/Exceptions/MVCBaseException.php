@@ -15,7 +15,7 @@ namespace Devlee\PHPMVCCore\Exceptions;
  * @package  php-mvc-core
  */
 
-abstract class BaseException extends \Exception
+abstract class MVCBaseException extends \Exception
 {
   private const VALIDATION_ERROR = 400;
   private const UNAUTHORIZED = 401;
