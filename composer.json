@@ -1,21 +1,26 @@
 {
-  "name": "devlee/php-mvc-core",
-  "description": "A PHP data access and manipulation module implementing the mvc pattern",
+  "name": "devlee/waker-orm",
+  "description": "A PHP Object Relational Mapper and  a Data Abstraction layer for Relational Databases",
   "type": "library",
-  "license": "MIT",
+  "keywords": [
+    "orm",
+    "relation mapper"
+  ],
   "autoload": {
     "psr-4": {
-      "Devlee\\PHPMVCCore\\": "src/"
+      "Devlee\\WakerORM\\": "src/"
     }
   },
   "authors": [
     {
       "name": "Ankain Lesly",
-      "email": "leeleslyank@gmail.com"
+      "email": "leeleslyank@gmail.com",
+      "role": "Project Founder",
+      "homepage": "https://www.letech-cg.com"
     }
   ],
-  "minimum-stability": "stable",
-  "require": {
-    "vlucas/phpdotenv": "^5.5"
-  }
+  "homepage": "",
+  "license": "MIT",
+  "minimum-stability": "dev",
+  "require": {}
 }

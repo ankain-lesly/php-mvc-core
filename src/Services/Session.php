@@ -7,11 +7,11 @@
  */
 
 
-namespace Devlee\PHPMVCCore;
+namespace Devlee\WakerORM\Services;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\Session
+ * @package  Waker-ORM
  */
 
 
@@ -29,6 +29,9 @@ class Session
 		$_SESSION[self::TOAST_KEY] = $toastMessages;
 	}
 
+	/**
+	 * Set a Toast message
+	 */
 	public function setToast($key = "toast", $body, ?string $redirect_url = null)
 	{
 		$_SESSION[self::TOAST_KEY][$key] = [
@@ -42,6 +45,9 @@ class Session
 		}
 	}
 
+	/**
+	 * Get Toast message
+	 */
 	public function getToast($key)
 	{
 		$toast = $_SESSION[self::TOAST_KEY][$key] ?? false;
@@ -50,21 +56,33 @@ class Session
 		// unset($_SESSION[self::TOAST_KEY][$key]);
 	}
 
-	public function set($key, $value)
+	/**
+	 * Start a session
+	 */
+	public function set(string $key, mixed  $value)
 	{
 		$_SESSION[$key] = $value;
 	}
 
-	public function get($key)
+	/**
+	 * Get a session token
+	 */
+	public function get(string $key)
 	{
 		return $_SESSION[$key] ?? false;
 	}
 
-	public function clear($key)
+	/**
+	 * Clear or remove a session token
+	 */
+	public function clear(string  $key)
 	{
 		unset($_SESSION[$key]);
 	}
 
+	/**
+	 * Remove session token
+	 */
 	private function removeToastMessages()
 	{
 		$toastMessages = $_SESSION[self::TOAST_KEY] ?? [];

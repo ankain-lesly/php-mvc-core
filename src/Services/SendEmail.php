@@ -7,11 +7,11 @@
  */
 
 
-namespace Devlee\PHPMVCCore;
+namespace Devlee\WakerORM\Services;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\SendEmail
+ * @package  Waker-ORM
  */
 
 class SendEmail

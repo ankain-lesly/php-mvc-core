@@ -8,14 +8,16 @@
  */
 
 
-namespace Devlee\PHPMVCCore;
+namespace Devlee\WakerORM;
 
-use Devlee\PHPMVCCore\DB\Database;
-use Devlee\PHPMVCCore\Exceptions\PropertyNotFoundException;
+use Devlee\WakerORM\DB\Database;
+use Devlee\WakerORM\Exceptions\OnPDOException;
+use Devlee\WakerORM\Exceptions\PropertyNotFoundException;
+use Devlee\WakerORM\Services\ObjectSchema;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\BaseModel
+ * @package  Waker-ORM
  */
 
 class BaseModel
@@ -70,22 +72,77 @@ class BaseModel
    */
   public function getTableName(): string
   {
-    echo '<pre>';
-
     $tableName = $this->tablename();
     if ($tableName !== '') return $tableName;
 
     $classArray = explode("\\", static::class);
-    $className = @end($classArray);
+    $className = end($classArray);
 
-    print_r($className);
+    $newClassName = strtolower($this->getPluralizedWord($className));
+    if (!$newClassName) return $className;
 
-    /**
-     * generating base table|collection name
-     */
+    return $newClassName;
+  }
 
-    exit($tableName);
-    return $tableName;
+
+  /**
+   * @param string $word Word to pluralize
+   * @return string Plural noun
+   * @link https://www.kavoir.com/2011/04/php-class-converting-plural-to-singular-or-vice-versa-in-english.html
+   */
+  private function getPluralizedWord(string $word): string
+  {
+    $plural = array(
+      '/(quiz)$/i' => '1zes',
+      '/^(ox)$/i' => '1en',
+      '/([m|l])ouse$/i' => '1ice',
+      '/(matr|vert|ind)ix|ex$/i' => '1ices',
+      '/(x|ch|ss|sh)$/i' => '1es',
+      '/([^aeiouy]|qu)ies$/i' => '1y',
+      '/([^aeiouy]|qu)y$/i' => '1ies',
+      '/(hive)$/i' => '1s',
+      '/(?:([^f])fe|([lr])f)$/i' => '12ves',
+      '/sis$/i' => 'ses',
+      '/([ti])um$/i' => '1a',
+      '/(buffal|tomat)o$/i' => '1oes',
+      '/(bu)s$/i' => '1ses',
+      '/(alias|status)/i' => '1es',
+      '/(octop|vir)us$/i' => '1i',
+      '/(ax|test)is$/i' => '1es',
+      '/s$/i' => 's',
+      '/$/' => 's'
+    );
+
+    $uncountable = array('equipment', 'information', 'rice', 'money', 'species', 'series', 'fish', 'sheep');
+
+    $irregular = array(
+      'person' => 'people',
+      'man' => 'men',
+      'child' => 'children',
+      'sex' => 'sexes',
+      'move' => 'moves'
+    );
+
+    $lowercased_word = strtolower($word);
+
+    foreach ($uncountable as $_uncountable) {
+      if (substr($lowercased_word, (-1 * strlen($_uncountable))) == $_uncountable) {
+        return $word;
+      }
+    }
+
+    foreach ($irregular as $_plural => $_singular) {
+      if (preg_match('/(' . $_plural . ')$/i', $word, $arr)) {
+        return preg_replace('/(' . $_plural . ')$/i', substr($arr[0], 0, 1) . substr($_singular, 1), $word);
+      }
+    }
+
+    foreach ($plural as $rule => $replacement) {
+      if (preg_match($rule, $word)) {
+        return preg_replace($rule, $replacement, $word);
+      }
+    }
+    return false;
   }
 
   #>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<#
@@ -100,7 +157,6 @@ class BaseModel
   {
     $params = [];
     foreach ($data as  $attr) {
-      // if (property_exists($this, $attr) && isset($this->{$attr}))
       if (!property_exists($this, $attr))
         throw new PropertyNotFoundException($attr, static::class);
       $params[] =  $attr;
@@ -117,6 +173,10 @@ class BaseModel
    */
   protected function generateSQLWhere(array $attr_where, string $clause = 'AND', string $selector = " = ")
   {
+    if (strtoupper($clause) !== "AND" && strtoupper($clause) !== "OR") {
+      $clause = "AND";
+    }
+
     $sql_where = [];
     foreach ($attr_where as $attr) {
       if (!property_exists($this, $attr))
@@ -132,8 +192,12 @@ class BaseModel
    */
   protected function prepareStatementParams(string $sql, array $data)
   {
-    $stmt = $this->conn->prepare($sql);
-    return $this->bindStatementParams($stmt, $data);
+    try {
+      $stmt = $this->conn->prepare($sql);
+      return $this->bindStatementParams($stmt, $data);
+    } catch (\PDOException $e) {
+      throw new OnPDOException($e->getMessage());
+    }
   }
 
 
@@ -155,11 +219,11 @@ class BaseModel
    * @method binds a sql params to a prepared statement
    * @return object
    */
-  protected function generateSQLPagination(array $pagination)
+  protected function generateSQLPagination(array $options)
   {
     $pagination_sql = '';
 
-    $index = $options['cur_page'] ?? false;
+    $index = $options['cur_page'] ?? 1;
     $per_page = $options['per_page'] ?? false;
     $start_at = $options['start_at'] ?? 0;
 
@@ -181,7 +245,7 @@ class BaseModel
       "cur_page" => $cur_page,
       "pages" =>  $pages,
       "per_page" => $per_page,
-      "total" => $total,
+      "items" => $total,
       "has_prev" => $cur_page > 1,
       "has_next" => $cur_page < $pages,
     ];
@@ -202,7 +266,7 @@ class BaseModel
     }
 
     if ($isJoin)
-      return $order_by ? "ORDER BY " . $this->{'tableName'}() . ".$order_by $direction" : '';
+      return $order_by ? "ORDER BY " . $this->getTableName() . ".$order_by $direction" : '';
     else
       return $order_by ? "ORDER BY $order_by $direction" : '';
   }

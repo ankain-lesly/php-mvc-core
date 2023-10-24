@@ -5,13 +5,13 @@
  * Date: 10/18/2023 - Time: 6:00 AM
  */
 
-namespace Devlee\PHPMVCCore\Components;
+namespace Devlee\WakerORM\Components;
 
-use Devlee\PHPMVCCore\Exceptions\PropertyNotFoundException;
+use Devlee\WakerORM\Exceptions\PropertyNotFoundException;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\DB\DBModel
+ * @package  Waker-ORM
  * 
  */
 

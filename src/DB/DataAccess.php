@@ -6,13 +6,13 @@
  * Updated: 10/03/2023 - Time: 11:54 PM
  */
 
-namespace Devlee\PHPMVCCore\DB;
+namespace Devlee\WakerORM\DB;
 
 use PDO;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\DB\DataAccess
+ * @package  Waker-ORM
  */
 
 class DataAccess extends Database

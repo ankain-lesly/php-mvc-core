@@ -5,13 +5,13 @@
  * Date: 10/18/2023 - Time: 6:00 AM
  */
 
-namespace Devlee\PHPMVCCore\Components;
+namespace Devlee\WakerORM\Components;
 
-use Devlee\PHPMVCCore\Exceptions\PropertyNotFoundException;
+use Devlee\WakerORM\Exceptions\PropertyNotFoundException;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\DB\DBModel
+ * @package  Waker-ORM
  * 
  */
 
@@ -20,9 +20,11 @@ trait SQLMapperORMTrait
   /**
    * Insert data into the Database Table
    * @method create
+   * 
+   * @param array $data An array of data to be inserted into the database array keys should match table columns
    * @return int
    */
-  public function create(array $data)
+  public function create(array $data): int
   {
     $tableName = $this->getTableName();
 
@@ -37,12 +39,17 @@ trait SQLMapperORMTrait
     return $this->conn->lastInsertId();
   }
 
-  /**
+  /** 
    * Update data in a Database Table 
    * @method update
+   * 
+   * @param array $data An array of data to be updated in the database table array keys should match table columns
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * 
+   * @link
    * @return bool
    */
-  public function update(array $data, array $where)
+  public function update(array $data, array $where): bool
   {
     $tableName = $this->getTableName();
 
@@ -65,11 +72,15 @@ trait SQLMapperORMTrait
   }
 
   /**
-   * Delete rows from the Database table 
+   * Delete a row in a Database table 
    * @method delete
+   * 
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * 
+   * @link
    * @return bool
    */
-  public function delete(array $where)
+  public function delete(array $where): bool
   {
     $tableName = $this->getTableName();
     $attr_where = array_keys($where);
@@ -87,9 +98,15 @@ trait SQLMapperORMTrait
   /**
    * Fetch a single rows from the Database 
    * @method findOne
+   * 
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * @param array $select A list of database columns to select
+   * @param string $clause Optional used to switch between OR - AND to perform a query
+   * 
+   * @link
    * @return array
    */
-  public function findOne(array $where, array $select = [])
+  public function findOne(array $where, array $select = [], string $clause = 'AND')
   {
     $select_list = " * ";
     if ($select) {
@@ -99,17 +116,23 @@ trait SQLMapperORMTrait
     $tableName = $this->getTableName();
     $attr_where = array_keys($where);
 
-    $sql_where = $this->generateSQLWhere($attr_where);
+    $sql_where = $this->generateSQLWhere($attr_where, $clause);
     $sql = "SELECT $select_list FROM $tableName $sql_where";
 
     $statement = $this->prepareStatementParams($sql, $where);
     $statement->execute();
-    return $statement->fetch() || [];
+    return $statement->fetch() ?: [];
   }
 
   /**
    * Fetch a collection of rows from the Database 
    * @method findAll
+   * 
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * @param array $select A list of database columns to select
+   * @param array $options set order_by and pagination options for the query
+   * 
+   * @link
    * @return array
    */
   public function findAll(
@@ -167,17 +190,22 @@ trait SQLMapperORMTrait
 
   /**
    * Fetch a single row of data from multiple tables 
-   * 
    * @method findOneJoin
-   * @param Model[] $models
-   * @return ?array
+   * 
+   * @param Model[] $models A list of DB Models to perform a join query (INNER JOIN QUERY)
+   * @param array $relation table columns|attributes that are common in both tables
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * @param array $select A list of database columns to select
+   * 
+   * @link
+   * @return array
    */
   public function findOneJoin(
     array $models,
-    array $relations,
-    array $where = [],
+    array $relation,
+    array $where,
     array $select = []
-  ) {
+  ): array {
     $mainTablename = $this->getTableName();
 
     $attributes = '';
@@ -192,15 +220,24 @@ trait SQLMapperORMTrait
       }
     } else if ($select && is_array($select[0])) {
       foreach ($select as $modelKey => $attrs) {
+
+        if ($modelKey !== 0) {
+          $model = $models[$modelKey - 1];
+        } else {
+          $model = $this;
+        }
+
+        if (empty($attrs)) {
+          if ($modelKey !== 0)
+            $attributes .= ', ';
+          $attributes .= $model->getTableName() . '.* ';
+          continue;
+        }
+
         foreach ($attrs as $key => $attr) {
           if ($key !== 0 || $modelKey !== 0)
             $attributes .= ', ';
-          $model = null;
-          if ($modelKey !== 0) {
-            $model = $models[$modelKey - 1];
-          } else {
-            $model = $this;
-          }
+
           if (!property_exists($model, $attr))
             throw new PropertyNotFoundException($attr, static::class);
           $attributes .= $model->getTableName() . '.' . $attr;
@@ -228,30 +265,52 @@ trait SQLMapperORMTrait
 
     foreach ($models as $key => $model) {
       $sql .= " INNER JOIN " . $model->getTableName();
-      if ($key === 0) {
-        $sql .= " ON " . $mainTablename . "." . $relations[$key] . " = "
-          . $model->getTableName() . "." . $relations[$key];
+      if (is_array($relation[$key])) {
+        $relationAttrMain = $relation[$key][0];
+        $relationAttrModel = $relation[$key][1];
       } else {
-        $sql .= " ON " . $models[$key - 1]->getTableName() . "." . $relations[$key] . " = "
-          . $models[$key]->getTableName() . "." . $relations[$key];
+        $relationAttrMain = $relation[$key];
+        $relationAttrModel = $relation[$key];
+      }
+
+      // Validating Attributes
+      if (!property_exists($this, $relationAttrMain))
+        throw new PropertyNotFoundException($relationAttrMain, static::class);
+
+      if (!property_exists($model, $relationAttrModel))
+        throw new PropertyNotFoundException($relationAttrModel, $model::class);
+
+      if ($key === 0) {
+        $sql .= " ON " . $model->getTableName() . "." . $relationAttrModel . " = "
+          . $mainTablename . "." . $relationAttrMain;
+      } else {
+        $sql .= " ON " . $models[$key]->getTableName() . "." . $relationAttrModel . " = "
+          . $mainTablename . "." . $relationAttrMain;
       }
     }
     $sql .= $attr_where;
 
     $statement = $this->prepareStatementParams($sql, $where);
     $statement->execute();
-    return $statement->fetch();
+    return $statement->fetch() ?: [];
   }
 
   /**
    * Fetch data from multiple tables 
    * @method findAllJoin
-   * @param Model[] $models
+   * 
+   * @param Model[] $models A list of DB Models to perform a join query (INNER JOIN QUERY)
+   * @param array $relation table columns|attributes that are common in both tables
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * @param array $select A list of database columns to select
+   * @param array $options set order_by and pagination options for the query
+   * 
+   * @link
    * @return array
    */
   public function findAllJoin(
     array $models,
-    array $relations,
+    array $relation,
     array $where = [],
     array $select = [],
     array $options = []
@@ -270,17 +329,26 @@ trait SQLMapperORMTrait
       }
     } else if ($select && is_array($select[0])) {
       foreach ($select as $modelKey => $attrs) {
+
+        if ($modelKey !== 0) {
+          $model = $models[$modelKey - 1];
+        } else {
+          $model = $this;
+        }
+
+        if (empty($attrs)) {
+          if ($modelKey !== 0)
+            $attributes .= ', ';
+          $attributes .= $model->getTableName() . '.* ';
+          continue;
+        }
+
         foreach ($attrs as $key => $attr) {
           if ($key !== 0 || $modelKey !== 0)
             $attributes .= ', ';
-          $model = null;
-          if ($modelKey !== 0) {
-            $model = $models[$modelKey - 1];
-          } else {
-            $model = $this;
-          }
+
           if (!property_exists($model, $attr))
-            throw new PropertyNotFoundException($attr, static::class);
+            throw new PropertyNotFoundException($attr, $model::class);
           $attributes .= $model->getTableName() . '.' . $attr;
         }
       }
@@ -319,12 +387,27 @@ trait SQLMapperORMTrait
 
     foreach ($models as $key => $model) {
       $sql .= " INNER JOIN " . $model->getTableName();
-      if ($key === 0) {
-        $sql .= " ON " . $mainTablename . "." . $relations[$key] . " = "
-          . $model->getTableName() . "." . $relations[$key];
+      if (is_array($relation[$key])) {
+        $relationAttrMain = $relation[$key][0];
+        $relationAttrModel = $relation[$key][1] ?? $relation[$key][0];
       } else {
-        $sql .= " ON " . $models[$key - 1]->getTableName() . "." . $relations[$key] . " = "
-          . $models[$key]->getTableName() . "." . $relations[$key];
+        $relationAttrMain = $relation[$key];
+        $relationAttrModel = $relation[$key];
+      }
+
+      // Validating Attributes
+      if (!property_exists($this, $relationAttrMain))
+        throw new PropertyNotFoundException($relationAttrMain, static::class);
+
+      if (!property_exists($model, $relationAttrModel))
+        throw new PropertyNotFoundException($relationAttrModel, $model::class);
+
+      if ($key === 0) {
+        $sql .= " ON " . $model->getTableName() . "." . $relationAttrModel . " = "
+          . $mainTablename . "." . $relationAttrMain;
+      } else {
+        $sql .= " ON " . $models[$key]->getTableName() . "." . $relationAttrModel . " = "
+          . $mainTablename . "." . $relationAttrMain;
       }
     }
     $sql .= "$attr_where $order_by_sql $pagination_sql";
@@ -358,7 +441,7 @@ trait SQLMapperORMTrait
    */
   public function searchJoin(
     array $models,
-    array $relations,
+    array $relation,
     array $search,
     array $where = [],
     array $select = [],
@@ -442,12 +525,27 @@ trait SQLMapperORMTrait
 
     foreach ($models as $key => $model) {
       $sql .= " INNER JOIN " . $model->getTableName();
-      if ($key === 0) {
-        $sql .= " ON " . $mainTablename . "." . $relations[$key] . " = "
-          . $model->getTableName() . "." . $relations[$key];
+      if (is_array($relation[$key])) {
+        $relationAttrMain = $relation[$key][0];
+        $relationAttrModel = $relation[$key][1] ?? $relation[$key][0];
       } else {
-        $sql .= " ON " . $models[$key - 1]->getTableName() . "." . $relations[$key] . " = "
-          . $models[$key]->getTableName() . "." . $relations[$key];
+        $relationAttrMain = $relation[$key];
+        $relationAttrModel = $relation[$key];
+      }
+
+      // Validating Attributes
+      if (!property_exists($this, $relationAttrMain))
+        throw new PropertyNotFoundException($relationAttrMain, static::class);
+
+      if (!property_exists($model, $relationAttrModel))
+        throw new PropertyNotFoundException($relationAttrModel, $model::class);
+
+      if ($key === 0) {
+        $sql .= " ON " . $model->getTableName() . "." . $relationAttrModel . " = "
+          . $mainTablename . "." . $relationAttrMain;
+      } else {
+        $sql .= " ON " . $models[$key]->getTableName() . "." . $relationAttrModel . " = "
+          . $mainTablename . "." . $relationAttrMain;
       }
     }
 
@@ -495,6 +593,13 @@ trait SQLMapperORMTrait
   /**
    * Search a single row of data
    * @method search
+   * 
+   * @param array $search An array container key values of table columns to search through
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * @param array $select A list of database columns to select
+   * @param array $options set order_by and pagination options for the query
+   * 
+   * @link
    * @return array
    */
   public function search(
@@ -579,8 +684,13 @@ trait SQLMapperORMTrait
     return $result;
   }
   /**
-   * @method Fetch Data count
-   * @return array
+   * Returns the count row in a database column;
+   * @method findCount
+   * 
+   * @param array $where An array of key matched with a value. This generates an SQL Where clause
+   * 
+   * @link
+   * @return array ['count' => 1]
    */
   public function findCount(array $where = [])
   {

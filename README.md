@@ -1,5 +1,3 @@
-# PHP MVC Core
+# Waker Object Relational Mapper
 
-## About
-
-A PHP data access and manipulation module implementing the mvc pattern
+A PHP Object Relational Mapper and a Data Abstraction layer for Relational Databases

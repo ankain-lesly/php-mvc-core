@@ -14,11 +14,11 @@ namespace Devlee\WakerORM\Exceptions;
  * @package  Waker-ORM
  */
 
-class ConnectionException extends _ModuleBaseException
+class OnPDOException extends _ModuleBaseException
 {
-  public function __construct(string $message, array $context = [])
+  public function __construct(string $message)
   {
-    parent::__construct($message, 'Connections Error', 500);
-    HandleModuleExceptions::setup($this, $context);
+    parent::__construct($message, 'Error Processing Query', 500);
+    HandleModuleExceptions::setup($this);
   }
 }

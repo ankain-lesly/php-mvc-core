@@ -7,15 +7,16 @@
  */
 
 
-namespace Devlee\PHPMVCCore\DB;
+namespace Devlee\WakerORM\DB;
 
-use Devlee\PHPMVCCore\Exceptions\ConnectionException;
-use Devlee\PHPMVCCore\Exceptions\HandleExceptionError;
+use Devlee\WakerORM\Exceptions\ConnectionException;
+use Devlee\WakerORM\Exceptions\HandleExceptionError;
+use Devlee\WakerORM\Exceptions\HandleModuleExceptions;
 use PDO;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\DB\Database
+ * @package  Waker-ORM
  */
 
 class Database
@@ -46,8 +47,8 @@ class Database
       // $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
       return $pdo;
     } catch (\PDOException $e) {
-      $message = $e->getMessage() . " >>> Error creating connections with server!";
-      HandleExceptionError::ErrorFromData("Connection Error", $message, $e->getCode());
+      $message = " >>> Error creating connections with server! >>> " . $e->getMessage();
+      throw new ConnectionException($message, context: ['message' => $message]);
     }
   }
 

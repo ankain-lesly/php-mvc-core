@@ -14,11 +14,11 @@ namespace Devlee\WakerORM\Exceptions;
  * @package  Waker-ORM
  */
 
-class ConnectionException extends _ModuleBaseException
+class ValidationException extends _ModuleBaseException
 {
   public function __construct(string $message, array $context = [])
   {
-    parent::__construct($message, 'Connections Error', 500);
+    parent::__construct($message, 'Validation Error', 422);
     HandleModuleExceptions::setup($this, $context);
   }
 }

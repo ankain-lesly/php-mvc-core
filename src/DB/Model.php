@@ -7,16 +7,16 @@
  * Updated: 10/18/2023 - Time: 6:00 AM
  */
 
-namespace Devlee\PHPMVCCore\DB;
+namespace Devlee\WakerORM\DB;
 
-use Devlee\PHPMVCCore\BaseModel;
-use Devlee\PHPMVCCore\Components\AuthHashing;
-use Devlee\PHPMVCCore\Components\SQLBuilder;
-use Devlee\PHPMVCCore\Components\SQLMapperORMTrait;
+use Devlee\WakerORM\BaseModel;
+use Devlee\WakerORM\Components\AuthHashing;
+use Devlee\WakerORM\Components\SQLBuilder;
+use Devlee\WakerORM\Components\SQLMapperORMTrait;
 
 /**
  * @author  Ankain Lesly <leeleslyank@gmail.com>
- * @package  Devlee\PHPMVCCore\DB\DBModel
+ * @package  Waker-ORM
  * 
  */
 
