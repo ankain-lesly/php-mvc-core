@@ -1,3 +1,5 @@
-# Waker Object Relational Mapper
+# PHP Waker ORM
 
-A PHP Object Relational Mapper and a Data Abstraction layer for Relational Databases
+An Object Relational Mapper for PHP
+
+A PHP SQL Object Relational Mapper and a Data Abstraction layer for Relational Databases

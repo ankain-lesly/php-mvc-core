@@ -19,6 +19,6 @@ class OnPDOException extends _ModuleBaseException
   public function __construct(string $message)
   {
     parent::__construct($message, 'Error Processing Query', 500);
-    HandleModuleExceptions::setup($this);
+    HandleModuleExceptions::setup($this,);
   }
 }

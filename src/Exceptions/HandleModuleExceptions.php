@@ -25,8 +25,8 @@ class HandleModuleExceptions
       'title' => $e->getTitle(),
       'code' => $e->getCode(),
       'message' => $e->getMessage(),
-      'file' => $e->getTrace()[0]['file'] ?? 'No file',
-      'line' => $e->getTrace()[0]['line'] ?? 'No Line',
+      // 'file' => $e->getTrace()[0]['file'] ?? 'No file',
+      // 'line' => $e->getTrace()[0]['line'] ?? 'No Line',
     );
 
     if ($context)
