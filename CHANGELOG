@@ -1,3 +1,9 @@
+# WakerORM
+
+# 2.1.0 (2023-11-9)
+
+- Update file reference paths to adapt .env superGlobals
+
 # 2.0.0-BETA (2023-10-24)
 
 - Modified Vendor and Package names

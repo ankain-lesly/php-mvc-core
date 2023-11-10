@@ -6,7 +6,6 @@
  * Updated: 10/03/2023 - Time: 11:54 PM
  */
 
-
 namespace Devlee\WakerORM\Services;
 
 /**
@@ -16,8 +15,8 @@ namespace Devlee\WakerORM\Services;
 
 class SendEmail
 {
-  private String $logo = ROOT_URL . "/static/media/app_logo.png";
-  private string $main_email = MAIN_EMAIL;
+  private String $logo = '';
+  private string $main_email = '';
 
   private String $email_send_to;
   private String $email_subject;
@@ -28,6 +27,9 @@ class SendEmail
 
   public function __construct($custom_header = null)
   {
+    $this->logo = $_ENV['APP_URL'] . "/static/media/app_logo.png";
+    $this->main_email = $_ENV['EMAIL_ADDRESS'];
+
     $this->email_body = '<html> <head> <title>{{subject}}</title> <style> .mail_btn { text-decoration: none;padding: 0.5em 1em; border-radius:10px; background-color: #3838de; color: #fff; display: block; margin: 10px; text-align: center; } </style> </head> <body> <div class="container"> {{header}} <div class="content"  style="padding: 10px;">{{content}}</div> </div> </body></html>';
 
     if ($custom_header) {
@@ -37,7 +39,7 @@ class SendEmail
       $header = '
         <div class="header" style="color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 12px; background-color: #351c15;">
           <img src="' . $this->logo . '" alt="Logo">
-          <h4>HND Resume</h4>
+          <h4>' . $_ENV['APP_NAME'] ?? "Service" . '</h4>
         </div>';
 
 
@@ -62,9 +64,9 @@ class SendEmail
   public function setHeaders($sender_email)
   {
     if ($sender_email) {
-      $headers = "From: HND Resume Generator <$sender_email> \r\n";
+      $headers = "From: " . $_ENV['APP_NAME'] ?? "Web Services" . " <$sender_email> \r\n";
     } else {
-      $headers = "From: HND Resume Generator <$this->main_email> \r\n";
+      $headers = "From: " . $_ENV['APP_NAME'] ?? "Web Services" . " <$this->main_email> \r\n";
     }
 
     $headers .= "Cc: Our Customer Service <$this->main_email> \r\n";
@@ -76,7 +78,7 @@ class SendEmail
 
   public function send()
   {
-    echo 'sending...';
+    // echo 'sending...';
     // $result = mail('to', 'subject', 'message', 'headers');
     $result = mail($this->email_send_to, $this->email_subject, $this->email_body, $this->email_headers);
   }
